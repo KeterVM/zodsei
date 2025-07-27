@@ -23,6 +23,28 @@ Zodsei provides:
 - **Flexible architecture**: Works with any backend, no server-side requirements
 - **Complete type safety**: From request to response, with runtime validation
 
+## When to Use Zodsei vs Other Solutions
+
+### For Full-Stack Projects (Recommended Alternatives)
+
+If you're developing a **full-stack project** or have **control over the backend**, we recommend using these excellent alternatives:
+
+- **[ts-rest](https://ts-rest.com/)** - Contract-first REST APIs with full-stack type safety
+- **[tRPC](https://trpc.io/)** - End-to-end typesafe APIs made easy
+- **[oRPC](https://orpc.unnoq.com/)** - Modern RPC framework with excellent TypeScript support
+
+These libraries provide superior developer experience when you control both frontend and backend.
+
+### When Zodsei is the Right Choice
+
+Use Zodsei when:
+
+- 🔌 **Consuming third-party APIs** - You don't control the backend
+- 🏢 **Working with existing REST APIs** - Legacy systems or external services
+- 🔄 **Migrating from unmaintained libraries** - Moving away from Zodios or similar
+- 🎯 **Need flexible HTTP client** - Custom requirements not covered by full-stack solutions
+- 📱 **Client-only applications** - Mobile apps, browser extensions, or pure frontend projects
+
 ## Features
 
 - 🔒 **Type-safe**: Full TypeScript support with automatic type inference
