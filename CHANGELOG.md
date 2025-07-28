@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.0-alpha] - 2025-01-28
 
 ### Added
+
 - **defineContract helper function** - New utility for defining contracts with better type inference
 - **Comprehensive examples** - Added multiple example files demonstrating different use cases:
   - `examples/basic-usage.ts` - Basic client usage with middleware
@@ -17,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `examples/contract-definition-comparison.ts` - Different contract definition approaches
 
 ### Changed
+
 - **BREAKING: Updated Zod v4 API usage** - Migrated from deprecated chained methods to top-level functions:
   - `z.string().uuid()` → `z.uuidv4()`
   - `z.string().email()` → `z.email()`
@@ -26,11 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Optimized bundle size** - Reduced package size by 94% (from ~500KB to ~30KB) by properly externalizing dependencies
 
 ### Fixed
+
 - **Bundle optimization** - Zod is now correctly treated as external dependency instead of being bundled
 - **Dependency management** - Moved Zod from `dependencies` to `peerDependencies` for better version control
 - **Type safety improvements** - Enhanced type inference with `defineContract` helper
 
 ### Technical Improvements
+
 - **Updated all dependencies** to latest versions
 - **Enhanced test coverage** - Added comprehensive middleware and adapter tests
 - **Improved documentation** - Updated README with consistent examples using `defineContract`
@@ -39,6 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Migration Guide
 
 #### Contract Definition
+
 ```typescript
 // Old way (still works but not recommended)
 const contract = {
@@ -53,6 +58,7 @@ const contract = defineContract({
 ```
 
 #### Zod Schema Updates
+
 ```typescript
 // Old (deprecated in Zod v4)
 z.string().uuid()
@@ -65,9 +71,10 @@ z.email()
 z.iso.datetime()
 ```
 
-## [0.1.4] - 2024-12-XX
+## [0.1.4] - 2025-01-27
 
 ### Initial Release
+
 - Contract-first HTTP client with Zod validation
 - Support for multiple HTTP adapters (Fetch, Axios, Ky)
 - Middleware system (retry, cache)
