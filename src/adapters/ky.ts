@@ -1,27 +1,11 @@
-import { HttpAdapter, AdapterConfig } from './index';
+import { HttpAdapter } from './index';
 import { RequestContext, ResponseContext } from '../types';
 import { HttpError, NetworkError, TimeoutError } from '../errors';
-
+import type { Options as KyOptions } from 'ky';
 /**
  * Ky adapter configuration
  */
-export interface KyAdapterConfig extends AdapterConfig {
-  timeout?: number;
-  retry?: number | {
-    limit: number;
-    methods: string[];
-    statusCodes: number[];
-    backoffLimit: number;
-  };
-  throwHttpErrors?: boolean;
-  credentials?: RequestCredentials;
-  mode?: RequestMode;
-  cache?: RequestCache;
-  redirect?: RequestRedirect;
-  referrer?: string;
-  referrerPolicy?: ReferrerPolicy;
-  integrity?: string;
-}
+export type KyAdapterConfig = KyOptions;
 
 /**
  * Ky HTTP adapter
@@ -35,7 +19,7 @@ export class KyAdapter implements HttpAdapter {
     this.config = {
       timeout: 30000,
       throwHttpErrors: false, // We handle errors ourselves
-      ...config
+      ...config,
     };
   }
 
@@ -44,7 +28,7 @@ export class KyAdapter implements HttpAdapter {
       try {
         const kyModule = await import('ky');
         this.ky = kyModule.default || kyModule;
-      } catch (error) {
+      } catch (_error) {
         throw new Error('ky is not installed. Please install it with: npm install ky');
       }
     }
@@ -55,7 +39,7 @@ export class KyAdapter implements HttpAdapter {
     try {
       const ky = await this.getKy();
       const kyOptions = this.createKyOptions(context);
-      
+
       const response = await ky(context.url, kyOptions);
 
       // Parse response data
@@ -94,7 +78,7 @@ export class KyAdapter implements HttpAdapter {
       if (error.name === 'HTTPError') {
         const response = error.response;
         const data = await this.parseResponseData(response).catch(() => null);
-        
+
         throw new HttpError(
           `HTTP ${response.status}: ${response.statusText}`,
           response.status,
@@ -149,12 +133,15 @@ export class KyAdapter implements HttpAdapter {
 
   private async parseResponseData(response: any): Promise<any> {
     const contentType = response.headers.get('content-type');
-    
+
     if (contentType?.includes('application/json')) {
       return response.json();
     } else if (contentType?.includes('text/')) {
       return response.text();
-    } else if (contentType?.includes('application/octet-stream') || contentType?.includes('application/pdf')) {
+    } else if (
+      contentType?.includes('application/octet-stream') ||
+      contentType?.includes('application/pdf')
+    ) {
       return response.blob();
     } else {
       // Try to parse as JSON, fallback to text

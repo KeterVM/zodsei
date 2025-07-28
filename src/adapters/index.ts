@@ -1,4 +1,4 @@
-import { HttpMethod, RequestContext, ResponseContext } from '../types';
+import { RequestContext, ResponseContext } from '../types';
 
 /**
  * HTTP adapter interface
@@ -8,7 +8,7 @@ export interface HttpAdapter {
    * Execute HTTP request
    */
   request(context: RequestContext): Promise<ResponseContext>;
-  
+
   /**
    * Adapter name
    */
@@ -33,7 +33,7 @@ export type AdapterType = 'fetch' | 'axios' | 'ky';
  */
 export async function createAdapter(
   type: AdapterType | HttpAdapter,
-  config?: AdapterConfig
+  config?: Record<string, any>
 ): Promise<HttpAdapter> {
   // If an adapter instance is passed, return it directly
   if (typeof type === 'object' && 'request' in type) {
@@ -46,17 +46,17 @@ export async function createAdapter(
       const { FetchAdapter } = await import('./fetch');
       return new FetchAdapter(config);
     }
-    
+
     case 'axios': {
       const { AxiosAdapter } = await import('./axios');
       return new AxiosAdapter(config);
     }
-    
+
     case 'ky': {
       const { KyAdapter } = await import('./ky');
       return new KyAdapter(config);
     }
-    
+
     default:
       throw new Error(`Unsupported adapter type: ${type}`);
   }
@@ -70,15 +70,15 @@ export async function isAdapterAvailable(type: AdapterType): Promise<boolean> {
     switch (type) {
       case 'fetch':
         return typeof fetch !== 'undefined';
-      
+
       case 'axios':
         await import('axios');
         return true;
-      
+
       case 'ky':
         await import('ky');
         return true;
-      
+
       default:
         return false;
     }
@@ -90,21 +90,23 @@ export async function isAdapterAvailable(type: AdapterType): Promise<boolean> {
 /**
  * Get default adapter
  */
-export async function getDefaultAdapter(config?: AdapterConfig): Promise<HttpAdapter> {
+export async function getDefaultAdapter(config?: Record<string, any>): Promise<HttpAdapter> {
   // Prefer fetch (built-in)
   if (await isAdapterAvailable('fetch')) {
     return createAdapter('fetch', config);
   }
-  
+
   // Try axios next
   if (await isAdapterAvailable('axios')) {
     return createAdapter('axios', config);
   }
-  
+
   // Finally try ky
   if (await isAdapterAvailable('ky')) {
     return createAdapter('ky', config);
   }
-  
-  throw new Error('No HTTP adapter available. Please install axios or ky, or ensure fetch is available.');
+
+  throw new Error(
+    'No HTTP adapter available. Please install axios or ky, or ensure fetch is available.'
+  );
 }

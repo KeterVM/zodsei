@@ -1,26 +1,25 @@
-import { z } from 'zod';
 import {
   Contract,
   EndpointDefinition,
   ClientConfig,
+  InternalClientConfig,
   ApiClient,
-  HttpMethod,
   RequestContext,
   ResponseContext,
 } from './types';
 import { ConfigError } from './errors';
 import { validateRequest, validateResponse } from './validation';
 import { separateParams, buildUrl, replacePath, shouldHaveBody } from './utils/path';
-import { createMiddlewareExecutor } from './middleware';
-import { createAdapter, getDefaultAdapter, HttpAdapter } from './adapters';
+import { createMiddlewareExecutor, MiddlewareExecutor } from './middleware';
+import { createAdapter, HttpAdapter } from './adapters';
 
 /**
  * Zodsei client core implementation
  */
 export class ZodseiClient<T extends Contract> {
   private readonly contract: T;
-  private readonly config: Required<ClientConfig>;
-  private readonly middlewareExecutor;
+  private readonly config: InternalClientConfig;
+  private readonly middlewareExecutor: MiddlewareExecutor;
   private adapter: HttpAdapter | null = null;
 
   constructor(contract: T, config: ClientConfig) {
@@ -53,7 +52,7 @@ export class ZodseiClient<T extends Contract> {
   /**
    * Normalize configuration
    */
-  private normalizeConfig(config: ClientConfig): Required<ClientConfig> {
+  private normalizeConfig(config: ClientConfig): InternalClientConfig {
     return {
       baseUrl: config.baseUrl.replace(/\/$/, ''),
       validateRequest: config.validateRequest ?? true,
@@ -115,25 +114,29 @@ export class ZodseiClient<T extends Contract> {
    * Create nested client for sub-contracts
    */
   private createNestedClient(nestedContract: Contract): any {
-    return new Proxy({}, {
-      get: (target, prop: string | symbol) => {
-        if (typeof prop === 'string') {
-          // Check if it's a direct endpoint in nested contract
-          if (prop in nestedContract && this.isEndpointDefinition(nestedContract[prop])) {
-            return this.createEndpointMethod(`${prop}`, nestedContract[prop] as EndpointDefinition);
+    return new Proxy(
+      {},
+      {
+        get: (_target, prop: string | symbol) => {
+          if (typeof prop === 'string') {
+            // Check if it's a direct endpoint in nested contract
+            if (prop in nestedContract && this.isEndpointDefinition(nestedContract[prop])) {
+              return this.createEndpointMethod(
+                `${prop}`,
+                nestedContract[prop] as EndpointDefinition
+              );
+            }
+
+            // Check if it's further nested
+            if (prop in nestedContract && this.isNestedContract(nestedContract[prop])) {
+              return this.createNestedClient(nestedContract[prop] as Contract);
+            }
           }
-          
-          // Check if it's further nested
-          if (prop in nestedContract && this.isNestedContract(nestedContract[prop])) {
-            return this.createNestedClient(nestedContract[prop] as Contract);
-          }
-        }
-        return undefined;
+          return undefined;
+        },
       }
-    });
+    );
   }
-
-
 
   /**
    * Create endpoint method
@@ -218,8 +221,11 @@ export class ZodseiClient<T extends Contract> {
 
       if (typeof this.config.adapter === 'string') {
         this.adapter = await createAdapter(this.config.adapter, adapterConfig);
-      } else {
+      } else if (this.config.adapter) {
         this.adapter = this.config.adapter;
+      } else {
+        // Default to fetch adapter
+        this.adapter = await createAdapter('fetch', adapterConfig);
       }
     }
     return this.adapter;
@@ -236,7 +242,7 @@ export class ZodseiClient<T extends Contract> {
   /**
    * Get configuration
    */
-  public getConfig(): Readonly<Required<ClientConfig>> {
+  public getConfig(): Readonly<InternalClientConfig> {
     return { ...this.config };
   }
 

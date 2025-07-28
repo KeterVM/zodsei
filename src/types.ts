@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import type { HttpAdapter, AdapterType } from './adapters';
+import type { FetchAdapterConfig } from './adapters/fetch';
+import type { AxiosAdapterConfig } from './adapters/axios';
+import type { KyAdapterConfig } from './adapters/ky';
 
 // HTTP method types
 export type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'options';
@@ -47,8 +50,8 @@ export type ApiClient<T extends Contract> = {
       : never;
 };
 
-// Client configuration
-export interface ClientConfig {
+// Base client configuration
+interface BaseClientConfig {
   baseUrl: string;
   validateRequest?: boolean;
   validateResponse?: boolean;
@@ -56,8 +59,42 @@ export interface ClientConfig {
   timeout?: number;
   retries?: number;
   middleware?: Middleware[];
-  adapter?: AdapterType | HttpAdapter;
-  adapterConfig?: Record<string, any>;
+}
+
+// Type-safe client configuration with conditional adapterConfig
+export type ClientConfig =
+  | (BaseClientConfig & {
+      adapter?: 'fetch';
+      adapterConfig?: FetchAdapterConfig;
+    })
+  | (BaseClientConfig & {
+      adapter: 'axios';
+      adapterConfig?: AxiosAdapterConfig;
+    })
+  | (BaseClientConfig & {
+      adapter: 'ky';
+      adapterConfig?: KyAdapterConfig;
+    })
+  | (BaseClientConfig & {
+      adapter: HttpAdapter;
+      adapterConfig?: Record<string, any>;
+    })
+  | (BaseClientConfig & {
+      adapter?: undefined;
+      adapterConfig?: FetchAdapterConfig; // Default to fetch
+    });
+
+// Internal configuration type for client implementation
+export interface InternalClientConfig {
+  baseUrl: string;
+  validateRequest: boolean;
+  validateResponse: boolean;
+  headers: Record<string, string>;
+  timeout: number;
+  retries: number;
+  middleware: Middleware[];
+  adapter: AdapterType | HttpAdapter;
+  adapterConfig: Record<string, any>;
 }
 
 // Middleware types
@@ -84,15 +121,13 @@ export interface ResponseContext {
   data: any;
 }
 
-
-
 // Path parameter extraction type
 export type ExtractPathParams<T extends string> =
   T extends `${infer _Start}:${infer Param}/${infer Rest}`
     ? { [K in Param]: string } & ExtractPathParams<`/${Rest}`>
     : T extends `${infer _Start}:${infer Param}`
       ? { [K in Param]: string }
-      : {};
+      : object;
 
 // Request data separation type
 export type SeparateRequestData<T> =
@@ -103,7 +138,7 @@ export type SeparateRequestData<T> =
         body: T;
       }
     : {
-        pathParams: {};
-        queryParams: {};
+        pathParams: object;
+        queryParams: object;
         body: T;
       };

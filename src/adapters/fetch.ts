@@ -1,19 +1,12 @@
-import { HttpAdapter, AdapterConfig } from './index';
+import { HttpAdapter } from './index';
 import { RequestContext, ResponseContext } from '../types';
 import { HttpError, NetworkError, TimeoutError } from '../errors';
 
 /**
  * Fetch adapter configuration
  */
-export interface FetchAdapterConfig extends AdapterConfig {
+export interface FetchAdapterConfig extends RequestInit {
   timeout?: number;
-  credentials?: RequestCredentials;
-  mode?: RequestMode;
-  cache?: RequestCache;
-  redirect?: RequestRedirect;
-  referrer?: string;
-  referrerPolicy?: ReferrerPolicy;
-  integrity?: string;
 }
 
 /**
@@ -26,7 +19,7 @@ export class FetchAdapter implements HttpAdapter {
   constructor(config: FetchAdapterConfig = {}) {
     this.config = {
       timeout: 30000,
-      ...config
+      ...config,
     };
   }
 
@@ -110,12 +103,15 @@ export class FetchAdapter implements HttpAdapter {
 
   private async parseResponseData(response: Response): Promise<any> {
     const contentType = response.headers.get('content-type');
-    
+
     if (contentType?.includes('application/json')) {
       return response.json();
     } else if (contentType?.includes('text/')) {
       return response.text();
-    } else if (contentType?.includes('application/octet-stream') || contentType?.includes('application/pdf')) {
+    } else if (
+      contentType?.includes('application/octet-stream') ||
+      contentType?.includes('application/pdf')
+    ) {
       return response.blob();
     } else {
       // Try to parse as JSON, fallback to text
