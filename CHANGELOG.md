@@ -5,6 +5,80 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-07-28
+
+### ✨ Added
+
+- **Type-Safe Adapter Configuration** - Revolutionary conditional type system for adapter configurations
+  - `adapterConfig` type is now automatically inferred based on the `adapter` parameter
+  - When `adapter: 'fetch'`, `adapterConfig` is typed as `FetchAdapterConfig`
+  - When `adapter: 'axios'`, `adapterConfig` is typed as `AxiosAdapterConfig`
+  - When `adapter: 'ky'`, `adapterConfig` is typed as `KyAdapterConfig`
+  - TypeScript provides intelligent autocomplete and compile-time validation
+  - Prevents configuration errors by catching invalid options at build time
+
+- **Enhanced Developer Experience**
+  - Smart IntelliSense for adapter-specific configuration options
+  - Compile-time error detection for invalid adapter configurations
+  - Comprehensive examples demonstrating type-safe configuration patterns
+
+### 🔧 Improved
+
+- **Modern ESLint Configuration**
+  - Migrated from legacy `.eslintrc.js` to modern flat config (`eslint.config.mjs`)
+  - Added TypeScript-specific rules with proper ignore patterns
+  - Configured separate rules for examples and test files
+  - Enhanced code quality and consistency across the project
+
+- **Type System Enhancements**
+  - Added `InternalClientConfig` type for better internal type handling
+  - Improved adapter configuration type definitions
+  - Enhanced type safety without breaking backward compatibility
+
+- **Code Quality**
+  - Fixed various lint issues and type safety problems
+  - Improved adapter factory function flexibility
+  - Clean up unused imports and consistent code formatting
+  - Better error handling in adapter implementations
+
+### 📚 Documentation
+
+- **Updated README** with type-safe configuration examples
+- **Added comprehensive examples** in `examples/type-safe-config.ts`
+- **Enhanced inline documentation** with better type annotations
+
+### 🏗️ Technical Details
+
+- **Conditional Union Types** - Implemented sophisticated TypeScript conditional types for adapter configuration
+- **Backward Compatibility** - All changes maintain 100% backward compatibility
+- **Type Inference** - Enhanced TypeScript's ability to infer correct types based on runtime values
+
+### Usage Example
+
+```typescript
+// ✅ Type-safe fetch configuration
+const fetchClient = createClient(contract, {
+  baseUrl: 'https://api.example.com',
+  adapter: 'fetch', // 👈 This determines adapterConfig type
+  adapterConfig: {
+    credentials: 'include', // ✅ Valid for fetch
+    mode: 'cors',           // ✅ Valid for fetch
+    // auth: { username: 'user' } // ❌ TypeScript error: not valid for fetch
+  }
+});
+
+// ✅ Type-safe axios configuration
+const axiosClient = createClient(contract, {
+  baseUrl: 'https://api.example.com',
+  adapter: 'axios', // 👈 This determines adapterConfig type
+  adapterConfig: {
+    auth: { username: 'user', password: 'pass' }, // ✅ Valid for axios
+    maxRedirects: 5,                               // ✅ Valid for axios
+    // credentials: 'include' // ❌ TypeScript error: not valid for axios
+  }
+});
+```
+
 ## [0.2.1-alpha] - 2025-07-28
 
 ### Added
