@@ -5,6 +5,115 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-07-28
+
+### 🚀 Major Features
+
+- **Schema Inference and Type Extraction** - Revolutionary runtime schema access and type inference system
+  - **Automatic Type Inference**: Endpoint methods now automatically infer request and response types
+  - **Schema Access**: Every endpoint method includes `.schema` property with complete schema information
+  - **Type Inference Helpers**: Added `.infer` property for compile-time type extraction
+  - **Schema Extractor**: Powerful `$schema` property for advanced schema operations
+  - **Nested Contract Support**: Full schema access support for nested contract structures
+
+### ✨ New APIs
+
+- **Enhanced Endpoint Methods**: All endpoint methods now include schema metadata
+  ```typescript
+  client.getUser.schema.request   // Zod request schema
+  client.getUser.schema.response  // Zod response schema
+  client.getUser.schema.endpoint  // Complete endpoint definition
+  ```
+
+- **Type Inference Helpers**: Compile-time type extraction utilities
+  ```typescript
+  type RequestType = typeof client.getUser.infer.request;
+  type ResponseType = typeof client.getUser.infer.response;
+  ```
+
+- **Schema Extractor**: Advanced schema introspection and manipulation
+  ```typescript
+  const schema = client.$schema;
+  schema.getEndpointPaths();           // ['getUser', 'createUser', ...]
+  schema.getEndpointSchemas('getUser'); // Complete schema info
+  schema.describeEndpoint('getUser');   // Documentation-friendly description
+  ```
+
+### 🎯 Enhanced Developer Experience
+
+- **Runtime Schema Access**: Access Zod schemas at runtime for validation, documentation generation, and testing
+- **Type-Safe Development**: Complete TypeScript type inference from schema definitions
+- **Documentation Generation**: Built-in schema description utilities for API documentation
+- **Testing Support**: Easy access to schemas for mock data generation and validation testing
+
+### 🔧 API Improvements
+
+- **Simplified API Design**: Unified `ApiClient<T>` type now includes all schema functionality by default
+- **Removed Legacy APIs**: Eliminated `createLegacyClient` for cleaner, more focused API surface
+- **Enhanced Type System**: `EndpointMethodWithSchema<T>` provides rich method signatures with metadata
+
+### 📚 New Utilities
+
+- **`InferRequestType<T>`** and **`InferResponseType<T>`**: Extract types from endpoint definitions
+- **`InferContractTypes<T>`**: Extract all types from entire contract definitions
+- **`SchemaExtractor<T>`**: Powerful class for schema introspection and manipulation
+- **`extractTypeInfo()`**: Utility function for runtime type information extraction
+
+### 🏗️ Technical Implementation
+
+- **Advanced TypeScript Generics**: Sophisticated conditional types for schema inference
+- **Runtime Type Safety**: Zod schema integration with TypeScript type system
+- **Proxy-Based Enhancement**: Dynamic method enhancement with schema metadata
+- **Zero Runtime Overhead**: Type inference happens at compile-time with minimal runtime impact
+
+### 📖 Examples and Documentation
+
+- **`examples/schema-inference.ts`**: Comprehensive demonstration of all new features
+- **`examples/simple-test.ts`**: Quick start guide for schema functionality
+- **Enhanced inline documentation**: Detailed JSDoc comments for all new APIs
+
+### Usage Examples
+
+```typescript
+// Create client with enhanced schema support
+const client = createClient(contract, config);
+
+// 1. Automatic type inference
+const user = await client.getUser({ id: '123' });
+// user is automatically typed as z.infer<typeof contract.getUser.response>
+
+// 2. Schema access
+console.log(client.getUser.schema.request);   // Zod schema object
+console.log(client.getUser.schema.response);  // Zod schema object
+
+// 3. Type inference helpers
+type GetUserRequest = typeof client.getUser.infer.request;
+type GetUserResponse = typeof client.getUser.infer.response;
+
+// 4. Schema extractor for advanced operations
+const schema = client.$schema;
+const endpoints = schema.getEndpointPaths();
+const description = schema.describeEndpoint('getUser');
+
+// 5. Nested contract support
+await client.profile.update({ name: 'New Name' });
+console.log(client.profile.update.schema.request);
+```
+
+### 🔄 Migration Guide
+
+This release is **fully backward compatible**. Existing code will continue to work without changes, but you can now access additional schema functionality:
+
+```typescript
+// Before: Basic usage (still works)
+const result = await client.getUser({ id: '123' });
+
+// After: Enhanced with schema access (new capability)
+const result = await client.getUser({ id: '123' });
+const requestSchema = client.getUser.schema.request;
+const responseSchema = client.getUser.schema.response;
+```
+
 ## [0.3.0] - 2025-07-28
 
 ### ✨ Added

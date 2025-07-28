@@ -3,14 +3,18 @@ import {
   EndpointDefinition,
   ClientConfig,
   InternalClientConfig,
-  ApiClient,
   RequestContext,
   ResponseContext,
+  ApiClient,
+  EndpointMethodWithSchema,
+  InferRequestType,
+  InferResponseType,
 } from './types';
 import { validateRequest, validateResponse } from './validation';
 import { separateParams, buildUrl, replacePath, shouldHaveBody } from './utils/path';
 import { createMiddlewareExecutor, MiddlewareExecutor } from './middleware';
 import { createAdapter, HttpAdapter } from './adapters';
+import { SchemaExtractor, createSchemaExtractor } from './schema';
 
 /**
  * Zodsei client core implementation
@@ -20,11 +24,13 @@ export class ZodseiClient<T extends Contract> {
   private readonly config: InternalClientConfig;
   private readonly middlewareExecutor: MiddlewareExecutor;
   private adapter: HttpAdapter | null = null;
+  public readonly $schema: SchemaExtractor<T>;
 
   constructor(contract: T, config: ClientConfig) {
     this.contract = contract;
     this.config = this.normalizeConfig(config);
     this.middlewareExecutor = createMiddlewareExecutor(this.config.middleware);
+    this.$schema = createSchemaExtractor(contract);
 
     // Create proxy object for dynamic method calls with nested support
     return new Proxy(this, {
@@ -112,14 +118,29 @@ export class ZodseiClient<T extends Contract> {
   }
 
   /**
-   * Create endpoint method
+   * Create endpoint method with schema access
    */
   private createEndpointMethod(endpointName: string, endpoint?: EndpointDefinition) {
     const targetEndpoint = endpoint || (this.contract[endpointName] as EndpointDefinition);
 
-    return async (data: any) => {
-      return this.executeEndpoint(targetEndpoint, data);
+    const method = async (data: InferRequestType<typeof targetEndpoint>) => {
+      return this.executeEndpoint(targetEndpoint, data) as Promise<InferResponseType<typeof targetEndpoint>>;
     };
+
+    // Attach schema information to the method
+    (method as EndpointMethodWithSchema<typeof targetEndpoint>).schema = {
+      request: targetEndpoint.request,
+      response: targetEndpoint.response,
+      endpoint: targetEndpoint,
+    };
+
+    // Attach type inference helpers (for development/debugging)
+    (method as EndpointMethodWithSchema<typeof targetEndpoint>).infer = {
+      request: {} as InferRequestType<typeof targetEndpoint>,
+      response: {} as InferResponseType<typeof targetEndpoint>,
+    };
+
+    return method as EndpointMethodWithSchema<typeof targetEndpoint>;
   }
 
   /**
@@ -235,7 +256,7 @@ export class ZodseiClient<T extends Contract> {
 }
 
 /**
- * Create client
+ * Create client with enhanced schema support
  */
 export function createClient<T extends Contract>(
   contract: T,

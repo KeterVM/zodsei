@@ -6,12 +6,25 @@
 export { createClient, ZodseiClient } from './client';
 export { defineContract } from './types';
 
+// Schema exports
+export {
+  SchemaExtractor,
+  createSchemaExtractor,
+  extractTypeInfo,
+  type InferRequestType,
+  type InferResponseType,
+  type InferContractTypes,
+  type InferEndpointMethod
+} from './schema';
+
 // Type exports
 export type {
   Contract,
   EndpointDefinition,
   ClientConfig,
   ApiClient,
+  EnhancedApiClient,
+  EndpointMethodWithSchema,
   HttpMethod,
   RequestContext,
   ResponseContext,

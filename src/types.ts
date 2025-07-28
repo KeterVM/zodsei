@@ -3,6 +3,7 @@ import type { HttpAdapter, AdapterType } from './adapters';
 import type { FetchAdapterConfig } from './adapters/fetch';
 import type { AxiosAdapterConfig } from './adapters/axios';
 import type { KyAdapterConfig } from './adapters/ky';
+import type { SchemaExtractor } from './schema';
 
 // HTTP method types
 export type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'options';
@@ -32,22 +33,19 @@ export function defineContract<T extends Contract>(contract: T): T {
   return contract;
 }
 
-/**
- * Endpoint method type
- */
-type EndpointMethod<T extends EndpointDefinition> = (
-  data: z.infer<T['request']>
-) => Promise<z.infer<T['response']>>;
+
 
 /**
- * Create client type from contract - supports nested access only
+ * Create client type from contract - supports nested access with schema support
  */
 export type ApiClient<T extends Contract> = {
   [K in keyof T]: T[K] extends EndpointDefinition
-    ? EndpointMethod<T[K]>
+    ? EndpointMethodWithSchema<T[K]>
     : T[K] extends Contract
       ? ApiClient<T[K]>
       : never;
+} & {
+  $schema: SchemaExtractor<T>;
 };
 
 // Base client configuration
@@ -142,3 +140,24 @@ export type SeparateRequestData<T> =
         queryParams: object;
         body: T;
       };
+
+// Schema inference types
+export type InferRequestType<T extends EndpointDefinition> = z.infer<T['request']>;
+export type InferResponseType<T extends EndpointDefinition> = z.infer<T['response']>;
+
+// Enhanced endpoint method with schema access
+export interface EndpointMethodWithSchema<T extends EndpointDefinition> {
+  (data: InferRequestType<T>): Promise<InferResponseType<T>>;
+  schema: {
+    request: T['request'];
+    response: T['response'];
+    endpoint: T;
+  };
+  infer: {
+    request: InferRequestType<T>;
+    response: InferResponseType<T>;
+  };
+}
+
+// Legacy type alias for backward compatibility
+export type EnhancedApiClient<T extends Contract> = ApiClient<T>;
