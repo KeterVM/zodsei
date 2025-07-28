@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0-alpha] - 2025-01-28
+## [0.2.0-alpha] - 2025-07-28
 
 ### Added
 
@@ -19,10 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **BREAKING: Updated Zod v4 API usage** - Migrated from deprecated chained methods to top-level functions:
-  - `z.string().uuid()` → `z.uuidv4()`
-  - `z.string().email()` → `z.email()`
-  - `z.string().datetime()` → `z.iso.datetime()`
+- **BREAKING: Updated Zod dependency** - Upgraded to Zod v4 with improved API and performance
 - **Improved contract definition syntax** - All examples now use `defineContract()` for better developer experience
 - **Updated ESLint configuration** - Migrated from `.eslintrc.js` to modern flat config format (`eslint.config.js`)
 - **Optimized bundle size** - Reduced package size by 94% (from ~500KB to ~30KB) by properly externalizing dependencies
@@ -71,7 +68,7 @@ z.email()
 z.iso.datetime()
 ```
 
-## [0.1.4] - 2025-01-27
+## [0.1.4] - 2025-07-27
 
 ### Initial Release
 
