@@ -74,9 +74,9 @@ import { z } from 'zod';
 import { defineContract } from 'zodsei';
 
 const UserSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   name: z.string(),
-  email: z.string().email()
+  email: z.email()
 });
 
 const apiContract = defineContract({
@@ -84,7 +84,7 @@ const apiContract = defineContract({
     path: '/users/:id',
     method: 'get' as const,
     request: z.object({
-      id: z.string().uuid()
+      id: z.uuid(),
     }),
     response: UserSchema
   },
@@ -94,7 +94,7 @@ const apiContract = defineContract({
     method: 'post' as const,
     request: z.object({
       name: z.string().min(1),
-      email: z.string().email()
+      email: z.email()
     }),
     response: UserSchema
   }
@@ -109,7 +109,16 @@ import { createClient } from 'zodsei';
 const client = createClient(apiContract, {
   baseUrl: 'https://api.example.com',
   validateRequest: true,
-  validateResponse: true
+  validateResponse: true,
+  // Type-safe adapter configuration - TypeScript infers the correct type based on adapter
+  adapter: 'fetch', // 👈 This determines adapterConfig type (FetchAdapterConfig)
+  adapterConfig: {
+    timeout: 10000,
+    credentials: 'include', // ✅ Valid for fetch
+    mode: 'cors',           // ✅ Valid for fetch
+    cache: 'no-cache'       // ✅ Valid for fetch
+    // auth: { username: 'user' } // ❌ TypeScript error: not valid for fetch
+  }
 });
 ```
 
@@ -140,6 +149,8 @@ Each endpoint in your contract should have:
 - `request`: Zod schema for request data
 - `response`: Zod schema for response data
 
+#### Basic Contract
+
 ```typescript
 const contract = defineContract({
   endpointName: {
@@ -149,6 +160,42 @@ const contract = defineContract({
     response: z.object({ /* response schema */ })
   }
 });
+```
+
+#### Nested Contracts
+
+Contracts can be nested to organize your API endpoints by feature or module:
+
+```typescript
+const contract = defineContract({
+  auth: defineContract({
+    login: {
+      path: '/auth/login',
+      method: 'post',
+      request: z.object({ email: z.string(), password: z.string() }),
+      response: z.object({ token: z.string() })
+    },
+    logout: {
+      path: '/auth/logout',
+      method: 'post',
+      request: z.object({}),
+      response: z.object({ success: z.boolean() })
+    }
+  }),
+  
+  users: defineContract({
+    getById: {
+      path: '/users/:id',
+      method: 'get',
+      request: z.object({ id: z.string() }),
+      response: UserSchema
+    }
+  })
+});
+
+// Usage with nested structure
+const loginResult = await client.auth.login({ email, password });
+const user = await client.users.getById({ id: '123' });
 ```
 
 ### Client Configuration

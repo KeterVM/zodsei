@@ -1,5 +1,8 @@
 import { z } from 'zod';
 import type { HttpAdapter, AdapterType } from './adapters';
+import type { FetchAdapterConfig } from './adapters/fetch';
+import type { AxiosAdapterConfig } from './adapters/axios';
+import type { KyAdapterConfig } from './adapters/ky';
 
 // HTTP method types
 export type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'options';
@@ -13,18 +16,42 @@ export interface EndpointDefinition {
 }
 
 // Contract type
-export type Contract = Record<string, EndpointDefinition>;
+/**
+ * Contract definition - can be nested
+ */
+export interface Contract {
+  [key: string]: EndpointDefinition | Contract;
+}
 
 /**
  * Helper function to define a contract with proper type inference
  * Preserves literal types while ensuring type safety
+ * Supports nested contracts
  */
 export function defineContract<T extends Contract>(contract: T): T {
   return contract;
 }
 
-// Client configuration
-export interface ClientConfig {
+/**
+ * Endpoint method type
+ */
+type EndpointMethod<T extends EndpointDefinition> = (
+  data: z.infer<T['request']>
+) => Promise<z.infer<T['response']>>;
+
+/**
+ * Create client type from contract - supports nested access only
+ */
+export type ApiClient<T extends Contract> = {
+  [K in keyof T]: T[K] extends EndpointDefinition
+    ? EndpointMethod<T[K]>
+    : T[K] extends Contract
+      ? ApiClient<T[K]>
+      : never;
+};
+
+// Base client configuration
+interface BaseClientConfig {
   baseUrl: string;
   validateRequest?: boolean;
   validateResponse?: boolean;
@@ -32,8 +59,42 @@ export interface ClientConfig {
   timeout?: number;
   retries?: number;
   middleware?: Middleware[];
-  adapter?: AdapterType | HttpAdapter;
-  adapterConfig?: Record<string, any>;
+}
+
+// Type-safe client configuration with conditional adapterConfig
+export type ClientConfig =
+  | (BaseClientConfig & {
+      adapter?: 'fetch';
+      adapterConfig?: FetchAdapterConfig;
+    })
+  | (BaseClientConfig & {
+      adapter: 'axios';
+      adapterConfig?: AxiosAdapterConfig;
+    })
+  | (BaseClientConfig & {
+      adapter: 'ky';
+      adapterConfig?: KyAdapterConfig;
+    })
+  | (BaseClientConfig & {
+      adapter: HttpAdapter;
+      adapterConfig?: Record<string, any>;
+    })
+  | (BaseClientConfig & {
+      adapter?: undefined;
+      adapterConfig?: FetchAdapterConfig; // Default to fetch
+    });
+
+// Internal configuration type for client implementation
+export interface InternalClientConfig {
+  baseUrl: string;
+  validateRequest: boolean;
+  validateResponse: boolean;
+  headers: Record<string, string>;
+  timeout: number;
+  retries: number;
+  middleware: Middleware[];
+  adapter: AdapterType | HttpAdapter;
+  adapterConfig: Record<string, any>;
 }
 
 // Middleware types
@@ -60,30 +121,24 @@ export interface ResponseContext {
   data: any;
 }
 
-// Derive client type from Contract
-export type ApiClient<T extends Contract> = {
-  [K in keyof T]: (
-    data: z.infer<T[K]['request']>
-  ) => Promise<z.infer<T[K]['response']>>
-};
-
 // Path parameter extraction type
-export type ExtractPathParams<T extends string> = 
+export type ExtractPathParams<T extends string> =
   T extends `${infer _Start}:${infer Param}/${infer Rest}`
     ? { [K in Param]: string } & ExtractPathParams<`/${Rest}`>
     : T extends `${infer _Start}:${infer Param}`
-    ? { [K in Param]: string }
-    : {};
+      ? { [K in Param]: string }
+      : object;
 
 // Request data separation type
-export type SeparateRequestData<T> = T extends Record<string, any>
-  ? {
-      pathParams: ExtractPathParams<string>;
-      queryParams: Omit<T, keyof ExtractPathParams<string>>;
-      body: T;
-    }
-  : {
-      pathParams: {};
-      queryParams: {};
-      body: T;
-    };
+export type SeparateRequestData<T> =
+  T extends Record<string, any>
+    ? {
+        pathParams: ExtractPathParams<string>;
+        queryParams: Omit<T, keyof ExtractPathParams<string>>;
+        body: T;
+      }
+    : {
+        pathParams: object;
+        queryParams: object;
+        body: T;
+      };

@@ -5,7 +5,131 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.0-alpha] - 2025-01-28
+## [0.3.0] - 2025-07-28
+
+### ✨ Added
+
+- **Type-Safe Adapter Configuration** - Revolutionary conditional type system for adapter configurations
+  - `adapterConfig` type is now automatically inferred based on the `adapter` parameter
+  - When `adapter: 'fetch'`, `adapterConfig` is typed as `FetchAdapterConfig`
+  - When `adapter: 'axios'`, `adapterConfig` is typed as `AxiosAdapterConfig`
+  - When `adapter: 'ky'`, `adapterConfig` is typed as `KyAdapterConfig`
+  - TypeScript provides intelligent autocomplete and compile-time validation
+  - Prevents configuration errors by catching invalid options at build time
+
+- **Enhanced Developer Experience**
+  - Smart IntelliSense for adapter-specific configuration options
+  - Compile-time error detection for invalid adapter configurations
+  - Comprehensive examples demonstrating type-safe configuration patterns
+
+### 🔧 Improved
+
+- **Modern ESLint Configuration**
+  - Migrated from legacy `.eslintrc.js` to modern flat config (`eslint.config.mjs`)
+  - Added TypeScript-specific rules with proper ignore patterns
+  - Configured separate rules for examples and test files
+  - Enhanced code quality and consistency across the project
+
+- **Type System Enhancements**
+  - Added `InternalClientConfig` type for better internal type handling
+  - Improved adapter configuration type definitions
+  - Enhanced type safety without breaking backward compatibility
+
+- **Code Quality**
+  - Fixed various lint issues and type safety problems
+  - Improved adapter factory function flexibility
+  - Clean up unused imports and consistent code formatting
+  - Better error handling in adapter implementations
+
+### 📚 Documentation
+
+- **Updated README** with type-safe configuration examples
+- **Added comprehensive examples** in `examples/type-safe-config.ts`
+- **Enhanced inline documentation** with better type annotations
+
+### 🏗️ Technical Details
+
+- **Conditional Union Types** - Implemented sophisticated TypeScript conditional types for adapter configuration
+- **Backward Compatibility** - All changes maintain 100% backward compatibility
+- **Type Inference** - Enhanced TypeScript's ability to infer correct types based on runtime values
+
+### Usage Example
+
+```typescript
+// ✅ Type-safe fetch configuration
+const fetchClient = createClient(contract, {
+  baseUrl: 'https://api.example.com',
+  adapter: 'fetch', // 👈 This determines adapterConfig type
+  adapterConfig: {
+    credentials: 'include', // ✅ Valid for fetch
+    mode: 'cors',           // ✅ Valid for fetch
+    // auth: { username: 'user' } // ❌ TypeScript error: not valid for fetch
+  }
+});
+
+// ✅ Type-safe axios configuration
+const axiosClient = createClient(contract, {
+  baseUrl: 'https://api.example.com',
+  adapter: 'axios', // 👈 This determines adapterConfig type
+  adapterConfig: {
+    auth: { username: 'user', password: 'pass' }, // ✅ Valid for axios
+    maxRedirects: 5,                               // ✅ Valid for axios
+    // credentials: 'include' // ❌ TypeScript error: not valid for axios
+  }
+});
+```
+
+## [0.2.1-alpha] - 2025-07-28
+
+### Added
+
+- **Nested Contract Support** - Contracts can now be nested to organize API endpoints by feature or module
+  - Use `defineContract()` within other contracts to create hierarchical structures
+  - Access nested endpoints with dot notation: `client.auth.login()`, `client.users.create()`
+  - Maintains full type safety and IntelliSense support for nested structures
+  - Added comprehensive example in `examples/nested-contract.ts`
+
+### Enhanced
+
+- **Type System Improvements** - Enhanced `Contract` interface to support nested structures
+- **Client Implementation** - Updated Proxy-based client to handle nested contract navigation
+- **Documentation** - Added nested contract examples to README.md
+
+### Technical Details
+
+- Modified `Contract` type from `Record<string, EndpointDefinition>` to `interface Contract { [key: string]: EndpointDefinition | Contract }`
+- Enhanced `ApiClient<T>` type to support recursive nested structures
+- Implemented `createNestedClient()` method for handling sub-contracts
+- Added type guards `isEndpointDefinition()` and `isNestedContract()` for runtime detection
+
+### Usage Example
+
+```typescript
+const contract = defineContract({
+  auth: defineContract({
+    login: {
+      path: '/auth/login',
+      method: 'post',
+      request: z.object({ email: z.string(), password: z.string() }),
+      response: z.object({ token: z.string() })
+    }
+  }),
+  users: defineContract({
+    getById: {
+      path: '/users/:id',
+      method: 'get',
+      request: z.object({ id: z.string() }),
+      response: UserSchema
+    }
+  })
+});
+
+// Usage with nested structure
+const loginResult = await client.auth.login({ email, password });
+const user = await client.users.getById({ id: '123' });
+```
+
+## [0.2.0-alpha] - 2025-07-28
 
 ### Added
 
@@ -19,10 +143,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **BREAKING: Updated Zod v4 API usage** - Migrated from deprecated chained methods to top-level functions:
-  - `z.string().uuid()` → `z.uuidv4()`
-  - `z.string().email()` → `z.email()`
-  - `z.string().datetime()` → `z.iso.datetime()`
+- **BREAKING: Updated Zod dependency** - Upgraded to Zod v4 with improved API and performance
 - **Improved contract definition syntax** - All examples now use `defineContract()` for better developer experience
 - **Updated ESLint configuration** - Migrated from `.eslintrc.js` to modern flat config format (`eslint.config.js`)
 - **Optimized bundle size** - Reduced package size by 94% (from ~500KB to ~30KB) by properly externalizing dependencies
@@ -71,7 +192,7 @@ z.email()
 z.iso.datetime()
 ```
 
-## [0.1.4] - 2025-01-27
+## [0.1.4] - 2025-07-27
 
 ### Initial Release
 

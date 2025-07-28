@@ -1,6 +1,7 @@
-import type { HttpAdapter, AdapterConfig } from './index';
+import type { HttpAdapter } from './index';
 import type { RequestContext, ResponseContext } from '../types';
 import { HttpError, NetworkError, TimeoutError } from '../errors';
+import type { CreateAxiosDefaults } from 'axios';
 
 /**
  * Axios interceptor configuration
@@ -19,25 +20,7 @@ export interface AxiosInterceptors {
 /**
  * Axios adapter configuration
  */
-export interface AxiosAdapterConfig extends AdapterConfig {
-  timeout?: number;
-  maxRedirects?: number;
-  validateStatus?: (status: number) => boolean;
-  maxContentLength?: number;
-  maxBodyLength?: number;
-  withCredentials?: boolean;
-  auth?: {
-    username: string;
-    password: string;
-  };
-  proxy?: {
-    host: string;
-    port: number;
-    auth?: {
-      username: string;
-      password: string;
-    };
-  };
+export interface AxiosAdapterConfig extends CreateAxiosDefaults {
   interceptors?: AxiosInterceptors;
 }
 
@@ -63,7 +46,7 @@ export class AxiosAdapter implements HttpAdapter {
       try {
         const axiosModule = await import('axios');
         this.axios = axiosModule.default || axiosModule;
-      } catch (error) {
+      } catch (_error) {
         throw new Error('axios is not installed. Please install it with: npm install axios');
       }
     }
@@ -85,7 +68,7 @@ export class AxiosAdapter implements HttpAdapter {
       const instance = axios.create();
 
       // Setup request interceptors
-      if (this.config.interceptors.request) {
+      if (this.config.interceptors?.request) {
         for (const interceptor of this.config.interceptors.request) {
           instance.interceptors.request.use(interceptor.onFulfilled, interceptor.onRejected);
         }
@@ -100,7 +83,7 @@ export class AxiosAdapter implements HttpAdapter {
 
       // Use the instance with configured interceptors
       this.axios = instance;
-    } catch (error) {
+    } catch (_error) {
       throw new Error('axios is not installed. Please install it with: npm install axios');
     }
   }

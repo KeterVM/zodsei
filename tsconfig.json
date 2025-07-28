@@ -19,7 +19,8 @@
     "rootDir": "./src",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "noEmit": true
+    "noEmit": true,
+    "noImplicitAny": false
   },
   "include": [
     "src/**/*"
