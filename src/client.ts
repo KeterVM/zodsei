@@ -6,7 +6,7 @@ import {
   ApiClient,
   HttpMethod,
   RequestContext,
-  ResponseContext
+  ResponseContext,
 } from './types';
 import { ConfigError } from './errors';
 import { validateRequest, validateResponse } from './validation';
@@ -27,18 +27,26 @@ export class ZodseiClient<T extends Contract> {
     this.contract = contract;
     this.config = this.normalizeConfig(config);
     this.middlewareExecutor = createMiddlewareExecutor(this.config.middleware);
-    
+
     // Validate configuration
     this.validateConfig();
-    
-    // Create proxy object for dynamic method calls
+
+    // Create proxy object for dynamic method calls with nested support
     return new Proxy(this, {
       get: (target, prop: string | symbol) => {
-        if (typeof prop === 'string' && prop in this.contract) {
-          return this.createEndpointMethod(prop);
+        if (typeof prop === 'string') {
+          // Check if it's a direct endpoint
+          if (prop in this.contract && this.isEndpointDefinition(this.contract[prop])) {
+            return this.createEndpointMethod(prop);
+          }
+
+          // Check if it's a nested contract
+          if (prop in this.contract && this.isNestedContract(this.contract[prop])) {
+            return this.createNestedClient(this.contract[prop] as Contract);
+          }
         }
         return (target as any)[prop];
-      }
+      },
     }) as ZodseiClient<T> & ApiClient<T>;
   }
 
@@ -55,7 +63,7 @@ export class ZodseiClient<T extends Contract> {
       retries: config.retries ?? 0,
       middleware: config.middleware ?? [],
       adapter: config.adapter ?? 'fetch',
-      adapterConfig: config.adapterConfig ?? {}
+      adapterConfig: config.adapterConfig ?? {},
     };
   }
 
@@ -83,25 +91,67 @@ export class ZodseiClient<T extends Contract> {
   }
 
   /**
+   * Check if a value is an endpoint definition
+   */
+  private isEndpointDefinition(value: any): value is EndpointDefinition {
+    return (
+      value &&
+      typeof value === 'object' &&
+      'path' in value &&
+      'method' in value &&
+      'request' in value &&
+      'response' in value
+    );
+  }
+
+  /**
+   * Check if a value is a nested contract
+   */
+  private isNestedContract(value: any): value is Contract {
+    return value && typeof value === 'object' && !this.isEndpointDefinition(value);
+  }
+
+  /**
+   * Create nested client for sub-contracts
+   */
+  private createNestedClient(nestedContract: Contract): any {
+    return new Proxy({}, {
+      get: (target, prop: string | symbol) => {
+        if (typeof prop === 'string') {
+          // Check if it's a direct endpoint in nested contract
+          if (prop in nestedContract && this.isEndpointDefinition(nestedContract[prop])) {
+            return this.createEndpointMethod(`${prop}`, nestedContract[prop] as EndpointDefinition);
+          }
+          
+          // Check if it's further nested
+          if (prop in nestedContract && this.isNestedContract(nestedContract[prop])) {
+            return this.createNestedClient(nestedContract[prop] as Contract);
+          }
+        }
+        return undefined;
+      }
+    });
+  }
+
+
+
+  /**
    * Create endpoint method
    */
-  private createEndpointMethod(endpointName: string) {
-    const endpoint = this.contract[endpointName];
-    
+  private createEndpointMethod(endpointName: string, endpoint?: EndpointDefinition) {
+    const targetEndpoint = endpoint || (this.contract[endpointName] as EndpointDefinition);
+
     return async (data: any) => {
-      return this.executeEndpoint(endpoint, data);
+      return this.executeEndpoint(targetEndpoint, data);
     };
   }
 
   /**
    * Execute endpoint request
    */
-  private async executeEndpoint(
-    endpoint: EndpointDefinition,
-    data: any
-  ): Promise<any> {
+  private async executeEndpoint(endpoint: EndpointDefinition, data: any): Promise<any> {
     // Validate request data
-    const validatedData = this.config.validateRequest 
+    const validatedData = this.config.validateRequest
       ? validateRequest(endpoint.request, data)
       : data;
 
@@ -109,9 +159,8 @@ export class ZodseiClient<T extends Contract> {
     const requestContext = this.buildRequestContext(endpoint, validatedData);
 
     // Execute middleware chain
-    const response = await this.middlewareExecutor.execute(
-      requestContext,
-      (ctx) => this.executeHttpRequest(ctx)
+    const response = await this.middlewareExecutor.execute(requestContext, (ctx) =>
+      this.executeHttpRequest(ctx)
     );
 
     // Validate response data
@@ -125,26 +174,26 @@ export class ZodseiClient<T extends Contract> {
   /**
    * Build request context
    */
-  private buildRequestContext(
-    endpoint: EndpointDefinition,
-    data: any
-  ): RequestContext {
+  private buildRequestContext(endpoint: EndpointDefinition, data: any): RequestContext {
     const { path, method } = endpoint;
-    
+
     // Separate path params and query params
     const { pathParams, queryParams } = separateParams(path, data);
-    
+
     // Replace path parameters
     const finalPath = replacePath(path, pathParams);
-    
+
     // Build URL
-    const url = method.toLowerCase() === 'get' 
-      ? buildUrl(this.config.baseUrl, finalPath, queryParams)
-      : buildUrl(this.config.baseUrl, finalPath);
+    const url =
+      method.toLowerCase() === 'get'
+        ? buildUrl(this.config.baseUrl, finalPath, queryParams)
+        : buildUrl(this.config.baseUrl, finalPath);
 
     // Determine request body
-    const body = shouldHaveBody(method) 
-      ? (method.toLowerCase() === 'get' ? undefined : data)
+    const body = shouldHaveBody(method)
+      ? method.toLowerCase() === 'get'
+        ? undefined
+        : data
       : undefined;
 
     return {
@@ -153,7 +202,7 @@ export class ZodseiClient<T extends Contract> {
       headers: { ...this.config.headers },
       body,
       params: pathParams,
-      query: method.toLowerCase() === 'get' ? queryParams : undefined
+      query: method.toLowerCase() === 'get' ? queryParams : undefined,
     };
   }
 
@@ -164,9 +213,9 @@ export class ZodseiClient<T extends Contract> {
     if (!this.adapter) {
       const adapterConfig = {
         timeout: this.config.timeout,
-        ...this.config.adapterConfig
+        ...this.config.adapterConfig,
       };
-      
+
       if (typeof this.config.adapter === 'string') {
         this.adapter = await createAdapter(this.config.adapter, adapterConfig);
       } else {

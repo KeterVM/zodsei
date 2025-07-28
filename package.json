@@ -1,6 +1,6 @@
 {
   "name": "zodsei",
-  "version": "0.2.0-alpha",
+  "version": "0.2.1-alpha",
   "description": "Contract-first type-safe HTTP client with Zod validation",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",

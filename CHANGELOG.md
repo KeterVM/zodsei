@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1-alpha] - 2025-07-28
+
+### Added
+
+- **Nested Contract Support** - Contracts can now be nested to organize API endpoints by feature or module
+  - Use `defineContract()` within other contracts to create hierarchical structures
+  - Access nested endpoints with dot notation: `client.auth.login()`, `client.users.create()`
+  - Maintains full type safety and IntelliSense support for nested structures
+  - Added comprehensive example in `examples/nested-contract.ts`
+
+### Enhanced
+
+- **Type System Improvements** - Enhanced `Contract` interface to support nested structures
+- **Client Implementation** - Updated Proxy-based client to handle nested contract navigation
+- **Documentation** - Added nested contract examples to README.md
+
+### Technical Details
+
+- Modified `Contract` type from `Record<string, EndpointDefinition>` to `interface Contract { [key: string]: EndpointDefinition | Contract }`
+- Enhanced `ApiClient<T>` type to support recursive nested structures
+- Implemented `createNestedClient()` method for handling sub-contracts
+- Added type guards `isEndpointDefinition()` and `isNestedContract()` for runtime detection
+
+### Usage Example
+
+```typescript
+const contract = defineContract({
+  auth: defineContract({
+    login: {
+      path: '/auth/login',
+      method: 'post',
+      request: z.object({ email: z.string(), password: z.string() }),
+      response: z.object({ token: z.string() })
+    }
+  }),
+  users: defineContract({
+    getById: {
+      path: '/users/:id',
+      method: 'get',
+      request: z.object({ id: z.string() }),
+      response: UserSchema
+    }
+  })
+});
+
+// Usage with nested structure
+const loginResult = await client.auth.login({ email, password });
+const user = await client.users.getById({ id: '123' });
+```
+
 ## [0.2.0-alpha] - 2025-07-28
 
 ### Added
