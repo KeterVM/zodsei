@@ -7,7 +7,6 @@ import {
   RequestContext,
   ResponseContext,
 } from './types';
-import { ConfigError } from './errors';
 import { validateRequest, validateResponse } from './validation';
 import { separateParams, buildUrl, replacePath, shouldHaveBody } from './utils/path';
 import { createMiddlewareExecutor, MiddlewareExecutor } from './middleware';
@@ -26,9 +25,6 @@ export class ZodseiClient<T extends Contract> {
     this.contract = contract;
     this.config = this.normalizeConfig(config);
     this.middlewareExecutor = createMiddlewareExecutor(this.config.middleware);
-
-    // Validate configuration
-    this.validateConfig();
 
     // Create proxy object for dynamic method calls with nested support
     return new Proxy(this, {
@@ -64,29 +60,6 @@ export class ZodseiClient<T extends Contract> {
       adapter: config.adapter ?? 'fetch',
       adapterConfig: config.adapterConfig ?? {},
     };
-  }
-
-  /**
-   * Validate configuration
-   */
-  private validateConfig(): void {
-    if (!this.config.baseUrl) {
-      throw new ConfigError('baseUrl is required');
-    }
-
-    try {
-      new URL(this.config.baseUrl);
-    } catch {
-      throw new ConfigError('baseUrl must be a valid URL');
-    }
-
-    if (this.config.timeout < 0) {
-      throw new ConfigError('timeout must be non-negative');
-    }
-
-    if (this.config.retries < 0) {
-      throw new ConfigError('retries must be non-negative');
-    }
   }
 
   /**
