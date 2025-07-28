@@ -181,6 +181,14 @@ describe('AxiosAdapter Interceptors', () => {
       // No onRejected
     };
 
+    // Mock successful response
+    mockAxiosInstance.request.mockResolvedValueOnce({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      data: { success: true },
+    });
+
     const adapter = new AxiosAdapter({
       interceptors: {
         request: [requestInterceptor],
