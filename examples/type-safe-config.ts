@@ -25,11 +25,11 @@ const fetchClient = createClient(contract, {
     // ✅ TypeScript knows these are fetch-specific options
     timeout: 5000,
     credentials: 'include', // ✅ RequestCredentials
-    mode: 'cors',           // ✅ RequestMode
-    cache: 'no-cache',      // ✅ RequestCache
-    redirect: 'follow',     // ✅ RequestRedirect
+    mode: 'cors', // ✅ RequestMode
+    cache: 'no-cache', // ✅ RequestCache
+    redirect: 'follow', // ✅ RequestRedirect
     referrerPolicy: 'no-referrer', // ✅ ReferrerPolicy
-    integrity: 'sha256-abc123',     // ✅ string
+    integrity: 'sha256-abc123', // ✅ string
     // auth: { username: 'test' },  // ❌ TypeScript error: not valid for fetch
   },
 });
@@ -42,17 +42,20 @@ const axiosClient = createClient(contract, {
   adapterConfig: {
     // ✅ TypeScript knows these are axios-specific options
     timeout: 10000,
-    maxRedirects: 5,        // ✅ Only available in axios
-    auth: {                 // ✅ Only available in axios
+    maxRedirects: 5, // ✅ Only available in axios
+    auth: {
+      // ✅ Only available in axios
       username: 'user',
       password: 'pass',
     },
-    proxy: {                // ✅ Only available in axios
+    proxy: {
+      // ✅ Only available in axios
       protocol: 'http',
       host: '127.0.0.1',
       port: 8080,
     },
-    interceptors: {         // ✅ Only available in axios
+    interceptors: {
+      // ✅ Only available in axios
       request: [
         {
           onFulfilled: (config) => {
