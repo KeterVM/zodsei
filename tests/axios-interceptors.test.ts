@@ -29,10 +29,13 @@ const mockAxios = {
   },
 };
 
-// Mock axios import
-vi.mock('axios', () => ({
-  default: mockAxios,
-}));
+// Mock axios import - handle both static and dynamic imports
+vi.mock('axios', async () => {
+  return {
+    default: mockAxios,
+    ...mockAxios,
+  };
+});
 
 describe('AxiosAdapter Interceptors', () => {
   beforeEach(() => {

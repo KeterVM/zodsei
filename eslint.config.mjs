@@ -44,6 +44,12 @@ export default tseslint.config(
   // Configuration for test files
   {
     files: ['**/*.test.ts', '**/*.spec.ts'],
+    languageOptions: {
+      parserOptions: {
+        project: './tsconfig.test.json',
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
     rules: {
       // Allow any in test files for mocking
       '@typescript-eslint/no-explicit-any': 'off',
@@ -62,6 +68,21 @@ export default tseslint.config(
     },
     rules: {
       // Relax rules for example files
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+    },
+  },
+
+  // Configuration for config files
+  {
+    files: ['*.config.ts', '*.config.js', '*.config.mjs'],
+    languageOptions: {
+      parserOptions: {
+        project: false, // Disable TypeScript project for config files
+      },
+    },
+    rules: {
+      // Relax rules for config files
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
     },
