@@ -15,6 +15,14 @@ export interface EndpointDefinition {
 // Contract type
 export type Contract = Record<string, EndpointDefinition>;
 
+/**
+ * Helper function to define a contract with proper type inference
+ * Preserves literal types while ensuring type safety
+ */
+export function defineContract<T extends Contract>(contract: T): T {
+  return contract;
+}
+
 // Client configuration
 export interface ClientConfig {
   baseUrl: string;

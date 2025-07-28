@@ -1,4 +1,4 @@
-import { Middleware } from '../types';
+import type { Middleware } from '../types';
 import { HttpError } from '../errors';
 
 /**
@@ -23,7 +23,11 @@ function defaultRetryCondition(error: Error): boolean {
 }
 
 // Calculate delay time
-function calculateDelay(attempt: number, baseDelay: number, backoff: 'linear' | 'exponential'): number {
+function calculateDelay(
+  attempt: number,
+  baseDelay: number,
+  backoff: 'linear' | 'exponential'
+): number {
   switch (backoff) {
     case 'exponential':
       return baseDelay * Math.pow(2, attempt);
@@ -35,7 +39,7 @@ function calculateDelay(attempt: number, baseDelay: number, backoff: 'linear' | 
 
 // Delay function
 function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
@@ -47,39 +51,39 @@ export function retryMiddleware(config: RetryConfig): Middleware {
     delay: baseDelay,
     backoff = 'exponential',
     retryCondition = defaultRetryCondition,
-    onRetry
+    onRetry,
   } = config;
 
   return async (request, next) => {
     let lastError: Error;
-    
+
     for (let attempt = 0; attempt <= retries; attempt++) {
       try {
         return await next(request);
       } catch (error) {
         lastError = error as Error;
-        
+
         // If it's the last attempt, throw error directly
         if (attempt === retries) {
           throw lastError;
         }
-        
+
         // Check if should retry
         if (!retryCondition(lastError)) {
           throw lastError;
         }
-        
+
         // Call retry callback
         if (onRetry) {
           onRetry(attempt + 1, lastError);
         }
-        
+
         // Calculate delay and wait
         const delayTime = calculateDelay(attempt, baseDelay, backoff);
         await delay(delayTime);
       }
     }
-    
+
     throw lastError!;
   };
 }
@@ -91,6 +95,6 @@ export function simpleRetry(retries: number, delay: number = 1000): Middleware {
   return retryMiddleware({
     retries,
     delay,
-    backoff: 'exponential'
+    backoff: 'exponential',
   });
 }

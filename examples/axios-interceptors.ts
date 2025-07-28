@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { createClient, AxiosAdapter } from '../src';
+import { createClient, AxiosAdapter, defineContract } from '../src';
 
 // Define API contract
-const apiContract = {
+const apiContract = defineContract({
   getUser: {
     path: '/users/:id',
     method: 'get' as const,
@@ -29,7 +29,7 @@ const apiContract = {
       email: z.string(),
     }),
   },
-} as const;
+});
 
 // Example 1: Use request interceptor to add auth token
 const clientWithAuth = createClient(apiContract, {

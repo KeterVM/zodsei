@@ -1,4 +1,4 @@
-import { Middleware, RequestContext, ResponseContext } from '../types';
+import type { Middleware, RequestContext, ResponseContext } from '../types';
 
 /**
  * Cache middleware configuration
@@ -37,17 +37,17 @@ export class MemoryCacheStorage implements CacheStorage {
 
   async get(key: string): Promise<CacheEntry | null> {
     const entry = this.cache.get(key);
-    
+
     if (!entry) {
       return null;
     }
-    
+
     // Check if expired
     if (Date.now() - entry.timestamp > entry.ttl) {
       this.cache.delete(key);
       return null;
     }
-    
+
     return entry;
   }
 
@@ -83,15 +83,15 @@ export class MemoryCacheStorage implements CacheStorage {
 function defaultKeyGenerator(request: RequestContext): string {
   const { url, method, body, query } = request;
   const parts = [method.toUpperCase(), url];
-  
+
   if (query && Object.keys(query).length > 0) {
     parts.push(JSON.stringify(query));
   }
-  
+
   if (body) {
     parts.push(JSON.stringify(body));
   }
-  
+
   return parts.join('|');
 }
 
@@ -109,32 +109,32 @@ export function cacheMiddleware(config: CacheConfig): Middleware {
     ttl,
     keyGenerator = defaultKeyGenerator,
     shouldCache = defaultShouldCache,
-    storage = new MemoryCacheStorage()
+    storage = new MemoryCacheStorage(),
   } = config;
 
   return async (request, next) => {
     const cacheKey = keyGenerator(request);
-    
+
     // Try to get from cache
     const cachedEntry = await storage.get(cacheKey);
     if (cachedEntry) {
       return cachedEntry.data;
     }
-    
+
     // Execute request
     const response = await next(request);
-    
+
     // Check if should cache
     if (shouldCache(request, response)) {
       const entry: CacheEntry = {
         data: response,
         timestamp: Date.now(),
-        ttl
+        ttl,
       };
-      
+
       await storage.set(cacheKey, entry);
     }
-    
+
     return response;
   };
 }

@@ -71,6 +71,7 @@ yarn add zodsei zod
 
 ```typescript
 import { z } from 'zod';
+import { defineContract } from 'zodsei';
 
 const UserSchema = z.object({
   id: z.string().uuid(),
@@ -78,7 +79,7 @@ const UserSchema = z.object({
   email: z.string().email()
 });
 
-const apiContract = {
+const apiContract = defineContract({
   getUser: {
     path: '/users/:id',
     method: 'get' as const,
@@ -97,7 +98,7 @@ const apiContract = {
     }),
     response: UserSchema
   }
-} as const;
+});
 ```
 
 ### 2. Create a client
@@ -140,14 +141,14 @@ Each endpoint in your contract should have:
 - `response`: Zod schema for response data
 
 ```typescript
-const contract = {
+const contract = defineContract({
   endpointName: {
     path: '/api/path/:param',
     method: 'post',
     request: z.object({ /* request schema */ }),
     response: z.object({ /* response schema */ })
   }
-} as const;
+});
 ```
 
 ### Client Configuration
@@ -355,7 +356,7 @@ try {
 ### Path Parameters
 
 ```typescript
-const contract = {
+const contract = defineContract({
   getUserPosts: {
     path: '/users/:userId/posts/:postId',
     method: 'get' as const,
@@ -365,7 +366,7 @@ const contract = {
     }),
     response: PostSchema
   }
-} as const;
+});
 
 // Usage
 const post = await client.getUserPosts({
@@ -379,7 +380,7 @@ const post = await client.getUserPosts({
 For GET requests, non-path parameters are automatically converted to query parameters:
 
 ```typescript
-const contract = {
+const contract = defineContract({
   searchUsers: {
     path: '/users',
     method: 'get' as const,
@@ -393,7 +394,7 @@ const contract = {
       total: z.number()
     })
   }
-} as const;
+});
 
 // Usage - generates: GET /users?q=john&page=1&limit=10
 const results = await client.searchUsers({
@@ -408,7 +409,7 @@ const results = await client.searchUsers({
 For POST/PUT/PATCH requests, the request data is sent as JSON body:
 
 ```typescript
-const contract = {
+const contract = defineContract({
   updateUser: {
     path: '/users/:id',
     method: 'put' as const,
@@ -419,7 +420,7 @@ const contract = {
     }),
     response: UserSchema
   }
-} as const;
+});
 
 // Usage
 const updated = await client.updateUser({

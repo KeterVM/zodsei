@@ -1,8 +1,8 @@
 import { z } from 'zod';
-import { createClient, AxiosAdapter } from '../src';
+import { createClient, AxiosAdapter, defineContract } from '../src';
 
 // Simple API contract
-const contract = {
+const contract = defineContract({
   getUser: {
     path: '/users/:id',
     method: 'get' as const,
@@ -15,7 +15,7 @@ const contract = {
       email: z.string(),
     }),
   },
-} as const;
+});
 
 // Demonstrate interceptor functionality
 async function demonstrateInterceptors() {
@@ -27,30 +27,37 @@ async function demonstrateInterceptors() {
     baseUrl: 'https://jsonplaceholder.typicode.com',
     adapter: new AxiosAdapter({
       interceptors: {
-        request: [{
-          onFulfilled: (config) => {
-            console.log('  📤 Request interceptor: Adding auth header');
-            config.headers = config.headers || {};
-            config.headers.Authorization = 'Bearer demo-token';
-            config.headers['X-Client'] = 'Zodsei';
-            return config;
+        request: [
+          {
+            onFulfilled: (config) => {
+              console.log('  📤 Request interceptor: Adding auth header');
+              config.headers = config.headers || {};
+              config.headers.Authorization = 'Bearer demo-token';
+              config.headers['X-Client'] = 'Zodsei';
+              return config;
+            },
+            onRejected: (error) => {
+              console.log('  ❌ Request interceptor error:', error.message);
+              return Promise.reject(error);
+            },
           },
-          onRejected: (error) => {
-            console.log('  ❌ Request interceptor error:', error.message);
-            return Promise.reject(error);
+        ],
+        response: [
+          {
+            onFulfilled: (response) => {
+              console.log('  📥 Response interceptor: Status', response.status);
+              // Can add response data processing logic here
+              return response;
+            },
+            onRejected: (error) => {
+              console.log(
+                '  ❌ Response interceptor error:',
+                error.response?.status || error.message
+              );
+              return Promise.reject(error);
+            },
           },
-        }],
-        response: [{
-          onFulfilled: (response) => {
-            console.log('  📥 Response interceptor: Status', response.status);
-            // Can add response data processing logic here
-            return response;
-          },
-          onRejected: (error) => {
-            console.log('  ❌ Response interceptor error:', error.response?.status || error.message);
-            return Promise.reject(error);
-          },
-        }],
+        ],
       },
     }),
   });
@@ -58,8 +65,8 @@ async function demonstrateInterceptors() {
   try {
     // This call will trigger interceptors
     console.log('  🔄 Sending request...');
-    // const user = await client.getUser({ id: '1' });
-    // console.log('  ✅ User data:', user);
+    const user = await client.getUser({ id: '1' });
+    console.log('  ✅ User data:', user);
     console.log('  ✅ Interceptor configuration successful!');
   } catch (error) {
     console.log('  ⚠️  Request failed (this is normal as we are using mock data)');
@@ -108,34 +115,36 @@ async function demonstrateInterceptors() {
     baseUrl: 'https://api.example.com',
     adapter: new AxiosAdapter({
       interceptors: {
-        response: [{
-          onRejected: (error) => {
-            console.log('  🚨 Global error handler activated');
-            
-            if (error.response) {
-              const status = error.response.status;
-              console.log(`  📊 HTTP Status Code: ${status}`);
-              
-              switch (status) {
-                case 401:
-                  console.log('  🔐 Handle unauthorized error - Redirect to login');
-                  break;
-                case 403:
-                  console.log('  🚫 Handle forbidden error - Show permission notice');
-                  break;
-                case 500:
-                  console.log('  💥 Handle server error - Show friendly message');
-                  break;
-                default:
-                  console.log('  ❓ Handle other errors');
+        response: [
+          {
+            onRejected: (error) => {
+              console.log('  🚨 Global error handler activated');
+
+              if (error.response) {
+                const status = error.response.status;
+                console.log(`  📊 HTTP Status Code: ${status}`);
+
+                switch (status) {
+                  case 401:
+                    console.log('  🔐 Handle unauthorized error - Redirect to login');
+                    break;
+                  case 403:
+                    console.log('  🚫 Handle forbidden error - Show permission notice');
+                    break;
+                  case 500:
+                    console.log('  💥 Handle server error - Show friendly message');
+                    break;
+                  default:
+                    console.log('  ❓ Handle other errors');
+                }
+              } else {
+                console.log('  🌐 Network error or request timeout');
               }
-            } else {
-              console.log('  🌐 Network error or request timeout');
-            }
-            
-            return Promise.reject(error);
+
+              return Promise.reject(error);
+            },
           },
-        }],
+        ],
       },
     }),
   });
@@ -144,8 +153,12 @@ async function demonstrateInterceptors() {
 
   console.log('\n🎉 All interceptor demos completed!');
   console.log('\n💡 Tips:');
-  console.log('   - Request interceptors can be used for auth, logging, request transformation, etc.');
-  console.log('   - Response interceptors can be used for data processing, error handling, performance monitoring, etc.');
+  console.log(
+    '   - Request interceptors can be used for auth, logging, request transformation, etc.'
+  );
+  console.log(
+    '   - Response interceptors can be used for data processing, error handling, performance monitoring, etc.'
+  );
   console.log('   - Multiple interceptors execute in configuration order');
   console.log('   - Interceptors support async operations');
 }

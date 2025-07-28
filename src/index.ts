@@ -4,6 +4,7 @@
 
 // Core exports
 export { createClient, ZodseiClient } from './client';
+export { defineContract } from './types';
 
 // Type exports
 export type {

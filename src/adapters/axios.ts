@@ -1,5 +1,5 @@
-import { HttpAdapter, AdapterConfig } from './index';
-import { RequestContext, ResponseContext } from '../types';
+import type { HttpAdapter, AdapterConfig } from './index';
+import type { RequestContext, ResponseContext } from '../types';
 import { HttpError, NetworkError, TimeoutError } from '../errors';
 
 /**
@@ -53,7 +53,7 @@ export class AxiosAdapter implements HttpAdapter {
     this.config = {
       timeout: 30000,
       validateStatus: () => true, // We handle status validation ourselves
-      ...config
+      ...config,
     };
     this.setupInterceptors();
   }
@@ -87,20 +87,14 @@ export class AxiosAdapter implements HttpAdapter {
       // Setup request interceptors
       if (this.config.interceptors.request) {
         for (const interceptor of this.config.interceptors.request) {
-          instance.interceptors.request.use(
-            interceptor.onFulfilled,
-            interceptor.onRejected
-          );
+          instance.interceptors.request.use(interceptor.onFulfilled, interceptor.onRejected);
         }
       }
 
       // Setup response interceptors
       if (this.config.interceptors.response) {
         for (const interceptor of this.config.interceptors.response) {
-          instance.interceptors.response.use(
-            interceptor.onFulfilled,
-            interceptor.onRejected
-          );
+          instance.interceptors.response.use(interceptor.onFulfilled, interceptor.onRejected);
         }
       }
 
@@ -115,7 +109,7 @@ export class AxiosAdapter implements HttpAdapter {
     try {
       const axios = await this.getAxios();
       const axiosConfig = this.createAxiosConfig(context);
-      
+
       const response = await axios.request(axiosConfig);
 
       const responseContext: ResponseContext = {

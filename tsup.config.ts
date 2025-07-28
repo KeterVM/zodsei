@@ -10,4 +10,9 @@ export default defineConfig({
   minify: false, // Keep readable during development
   target: 'es2020',
   outDir: 'dist',
+  external: [
+    'zod',
+    'axios',
+    'ky'
+  ],
 });

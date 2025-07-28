@@ -1,4 +1,4 @@
-import { Middleware, RequestContext, ResponseContext } from '../types';
+import type { Middleware, RequestContext, ResponseContext } from '../types';
 
 /**
  * Middleware system
