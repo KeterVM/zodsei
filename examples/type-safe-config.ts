@@ -54,33 +54,6 @@ const axiosClient = createClient(contract, {
       host: '127.0.0.1',
       port: 8080,
     },
-    interceptors: {
-      // ✅ Only available in axios
-      request: [
-        {
-          onFulfilled: (config) => {
-            console.log('Request interceptor:', config);
-            return config;
-          },
-          onRejected: (error) => {
-            console.error('Request error:', error);
-            return Promise.reject(error);
-          },
-        },
-      ],
-      response: [
-        {
-          onFulfilled: (response) => {
-            console.log('Response interceptor:', response);
-            return response;
-          },
-          onRejected: (error) => {
-            console.error('Response error:', error);
-            return Promise.reject(error);
-          },
-        },
-      ],
-    },
     // credentials: 'include', // ❌ TypeScript error: not valid for axios
   },
 });

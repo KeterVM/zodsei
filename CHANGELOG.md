@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-08-13
+
+### Added
+
+- Full support for optional request and response schemas in endpoint definitions.
+- Runtime type info flags: `hasRequestSchema` and `hasResponseSchema` via `extractTypeInfo()`.
+
+### Changed
+
+- Endpoint method signatures now conditionally require parameters only when a request schema exists.
+- Validation utilities (`validateRequest`, `validateResponse`, `safeParseRequest`, `safeParseResponse`) gracefully skip validation when schemas are undefined.
+- Type inference helpers (`InferRequestType`, `InferResponseType`) now conditionally infer `void`/`unknown` when schemas are missing.
+- `.infer` property on endpoint methods now reflects schema presence (e.g., `infer.request` is `{}` or `undefined` when no request schema).
+
+### Fixed
+
+- Client endpoint detection no longer requires `request`/`response` to exist for a valid endpoint.
+
+### Docs
+
+- New examples demonstrating endpoints with optional request/response schemas.
+- Updated schema extraction and description docs to handle optional schemas.
+
+### Migration
+
+- Existing endpoints remain compatible without changes.
+- For endpoints without a request schema, calling methods without arguments is now the canonical form. Passing `undefined` still works but is unnecessary.
+- If you previously assumed `.infer.request` always exists, update code to handle the optional shape.
+
 ## [0.4.0] - 2025-07-28
 
 ### 🚀 Major Features
@@ -19,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### ✨ New APIs
 
 - **Enhanced Endpoint Methods**: All endpoint methods now include schema metadata
+
   ```typescript
   client.getUser.schema.request   // Zod request schema
   client.getUser.schema.response  // Zod response schema
@@ -26,12 +56,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ```
 
 - **Type Inference Helpers**: Compile-time type extraction utilities
+
   ```typescript
   type RequestType = typeof client.getUser.infer.request;
   type ResponseType = typeof client.getUser.infer.response;
   ```
 
 - **Schema Extractor**: Advanced schema introspection and manipulation
+
   ```typescript
   const schema = client.$schema;
   schema.getEndpointPaths();           // ['getUser', 'createUser', ...]
@@ -246,8 +278,7 @@ const user = await client.users.getById({ id: '123' });
 - **Comprehensive examples** - Added multiple example files demonstrating different use cases:
   - `examples/basic-usage.ts` - Basic client usage with middleware
   - `examples/adapter-usage.ts` - HTTP adapter comparison and configuration
-  - `examples/interceptor-demo.ts` - Axios interceptor demonstrations
-  - `examples/axios-interceptors.ts` - Advanced interceptor patterns
+  - `examples/interceptor-demo.ts` - Middleware demonstrations (auth, logging, error handling)
   - `examples/contract-definition-comparison.ts` - Different contract definition approaches
 
 ### Changed

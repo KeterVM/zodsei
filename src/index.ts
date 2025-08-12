@@ -14,7 +14,7 @@ export {
   type InferRequestType,
   type InferResponseType,
   type InferContractTypes,
-  type InferEndpointMethod
+  type InferEndpointMethod,
 } from './schema';
 
 // Type exports
@@ -30,7 +30,7 @@ export type {
   ResponseContext,
   Middleware,
   ExtractPathParams,
-  SeparateRequestData
+  SeparateRequestData,
 } from './types';
 
 // Error class exports
@@ -40,7 +40,7 @@ export {
   HttpError,
   NetworkError,
   ConfigError,
-  TimeoutError
+  TimeoutError,
 } from './errors';
 
 // Validation utility exports
@@ -49,19 +49,19 @@ export {
   validateResponse,
   safeParseRequest,
   safeParseResponse,
-  createValidator
+  createValidator,
 } from './validation';
 
 // Middleware exports
 export { createMiddlewareExecutor, composeMiddleware } from './middleware';
 export { retryMiddleware, simpleRetry } from './middleware/retry';
-export { 
-  cacheMiddleware, 
-  simpleCache, 
+export {
+  cacheMiddleware,
+  simpleCache,
   MemoryCacheStorage,
   type CacheConfig,
   type CacheStorage,
-  type CacheEntry
+  type CacheEntry,
 } from './middleware/cache';
 
 // Utility function exports
@@ -71,12 +71,10 @@ export {
   buildQueryString,
   buildUrl,
   separateParams,
-  shouldHaveBody
+  shouldHaveBody,
 } from './utils/path';
 
-export {
-  mergeHeaders
-} from './utils/request';
+export { mergeHeaders } from './utils/request';
 
 // Adapter exports
 export {
@@ -85,7 +83,6 @@ export {
   isAdapterAvailable,
   type HttpAdapter,
   type AdapterType,
-  type AdapterConfig
 } from './adapters';
 
 export { FetchAdapter, type FetchAdapterConfig } from './adapters/fetch';

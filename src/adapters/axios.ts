@@ -4,25 +4,9 @@ import { HttpError, NetworkError, TimeoutError } from '../errors';
 import type { CreateAxiosDefaults } from 'axios';
 
 /**
- * Axios interceptor configuration
- */
-export interface AxiosInterceptors {
-  request?: {
-    onFulfilled?: (config: any) => any | Promise<any>;
-    onRejected?: (error: any) => any;
-  }[];
-  response?: {
-    onFulfilled?: (response: any) => any | Promise<any>;
-    onRejected?: (error: any) => any;
-  }[];
-}
-
-/**
  * Axios adapter configuration
  */
-export interface AxiosAdapterConfig extends CreateAxiosDefaults {
-  interceptors?: AxiosInterceptors;
-}
+export type AxiosAdapterConfig = CreateAxiosDefaults;
 
 /**
  * Axios HTTP adapter
@@ -38,7 +22,6 @@ export class AxiosAdapter implements HttpAdapter {
       validateStatus: () => true, // We handle status validation ourselves
       ...config,
     };
-    this.setupInterceptors();
   }
 
   private async getAxios() {
@@ -53,40 +36,7 @@ export class AxiosAdapter implements HttpAdapter {
     return this.axios;
   }
 
-  /**
-   * Setup interceptors
-   */
-  private async setupInterceptors() {
-    if (!this.config.interceptors) {
-      return;
-    }
-
-    // Import axios directly to avoid circular dependency
-    try {
-      const axiosModule = await import('axios');
-      const axios = axiosModule.default || axiosModule;
-      const instance = axios.create();
-
-      // Setup request interceptors
-      if (this.config.interceptors?.request) {
-        for (const interceptor of this.config.interceptors.request) {
-          instance.interceptors.request.use(interceptor.onFulfilled, interceptor.onRejected);
-        }
-      }
-
-      // Setup response interceptors
-      if (this.config.interceptors.response) {
-        for (const interceptor of this.config.interceptors.response) {
-          instance.interceptors.response.use(interceptor.onFulfilled, interceptor.onRejected);
-        }
-      }
-
-      // Use the instance with configured interceptors
-      this.axios = instance;
-    } catch (_error) {
-      throw new Error('axios is not installed. Please install it with: npm install axios');
-    }
-  }
+  // Interceptors are not supported. Use middleware in the client instead.
 
   async request(context: RequestContext): Promise<ResponseContext> {
     try {

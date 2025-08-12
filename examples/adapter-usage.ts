@@ -1,4 +1,4 @@
-import { createClient, z, AxiosAdapter, KyAdapter, defineContract, type ApiClient } from '../src';
+import { createClient, z, defineContract, type ApiClient } from '../src';
 
 // Define data schemas for reusability
 const UserSchema = z.object({
@@ -100,46 +100,30 @@ const kyClient: ClientType = createClient(apiContract, {
     },
     credentials: 'include',
     headers: {
-      'Accept': 'application/json',
+      Accept: 'application/json',
     },
   },
 });
 
-// Example 4: Use custom Axios adapter instance with authentication
-const customAxiosClient: ClientType = createClient(apiContract, {
+// Example 4: Use Axios adapter with authentication via adapterConfig (no adapter instances)
+const axiosAuthClient: ClientType = createClient(apiContract, {
   baseUrl: 'https://api.example.com',
-  adapter: new AxiosAdapter({
+  adapter: 'axios',
+  adapterConfig: {
     timeout: 20000,
     withCredentials: true,
     auth: {
       username: 'api-user',
       password: 'secure-password',
     },
-    interceptors: {
-      request: [{
-        onFulfilled: (config) => {
-          console.log('🔄 Axios request interceptor:', config.url);
-          return config;
-        },
-      }],
-      response: [{
-        onFulfilled: (response) => {
-          console.log('✅ Axios response interceptor:', response.status);
-          return response;
-        },
-        onRejected: (error) => {
-          console.error('❌ Axios error interceptor:', error.message);
-          return Promise.reject(error);
-        },
-      }],
-    },
-  }),
+  },
 });
 
-// Example 5: Use custom Ky adapter instance with advanced retry
-const customKyClient: ClientType = createClient(apiContract, {
+// Example 5: Use Ky adapter with advanced retry via adapterConfig (no adapter instances)
+const kyAdvancedRetryClient: ClientType = createClient(apiContract, {
   baseUrl: 'https://api.example.com',
-  adapter: new KyAdapter({
+  adapter: 'ky',
+  adapterConfig: {
     timeout: 8000,
     retry: {
       limit: 5,
@@ -159,7 +143,7 @@ const customKyClient: ClientType = createClient(apiContract, {
         },
       ],
     },
-  }),
+  },
 });
 
 // Usage example with comprehensive type safety
@@ -171,7 +155,7 @@ async function demonstrateAdapters(): Promise<void> {
   try {
     // Test GET operations with all adapters
     console.log('📡 Testing GET operations:');
-    
+
     const fetchUser = await fetchClient.getUser({ id: userId });
     console.log('✅ Fetch result:', {
       id: fetchUser.id,
@@ -195,7 +179,7 @@ async function demonstrateAdapters(): Promise<void> {
 
     // Test POST operations
     console.log('\n➕ Testing POST operations:');
-    
+
     const newUserData = {
       name: 'John Doe',
       email: 'john.doe@example.com',
@@ -212,7 +196,7 @@ async function demonstrateAdapters(): Promise<void> {
 
     // Test PUT operations
     console.log('\n🔄 Testing PUT operations:');
-    
+
     const updateData = {
       id: userId,
       name: 'Jane Doe',
@@ -224,10 +208,9 @@ async function demonstrateAdapters(): Promise<void> {
 
     // Test DELETE operations
     console.log('\n🗑️ Testing DELETE operations:');
-    
+
     const deleteResult = await fetchClient.deleteUser({ id: userId });
     console.log('✅ Delete result:', deleteResult.message);
-
   } catch (error) {
     if (error instanceof Error) {
       console.error('❌ Error:', {
@@ -252,28 +235,28 @@ function compareAdapters(): void {
   console.log('│ Browser         │ ✅      │ ✅      │ ✅      │');
   console.log('│ TypeScript      │ ✅      │ ✅      │ ✅      │');
   console.log('│ Auto Retry      │ ❌      │ ❌      │ ✅      │');
-  console.log('│ Interceptors    │ ❌      │ ✅      │ Hooks   │');
+  console.log('│ Middleware      │ ✅      │ ✅      │ ✅      │');
   console.log('│ Upload Progress │ ❌      │ ✅      │ ❌      │');
   console.log('│ Request Cancel  │ ✅      │ ✅      │ ✅      │');
   console.log('│ JSON Auto Parse │ Manual  │ ✅      │ ✅      │');
   console.log('│ Bundle Size     │ 0KB     │ ~13KB   │ ~4KB    │');
   console.log('└───────────────┴─────────┴─────────┴─────────┘');
-  
+
   console.log('\n📝 Recommendations:');
   console.log('• 🌐 **Fetch**: Best for modern environments, zero dependencies');
-  console.log('• 🚀 **Axios**: Best for complex apps needing interceptors/progress');
+  console.log('• 🚀 **Axios**: Best for complex apps needing advanced HTTP features (proxy, auth, progress)');
   console.log('• ⚡ **Ky**: Best balance of features and size, great retry logic');
-  
+
   console.log('\n🛠️ Configuration Examples:');
   console.log('```typescript');
   console.log('// Fetch: Minimal config');
   console.log('adapter: "fetch"');
   console.log('');
   console.log('// Axios: Full-featured');
-  console.log('adapter: new AxiosAdapter({ interceptors: {...} })');
+  console.log('adapter: "axios", adapterConfig: { timeout: 10000, auth: { username: "u", password: "p" } }');
   console.log('');
   console.log('// Ky: Modern with retry');
-  console.log('adapter: new KyAdapter({ retry: { limit: 3 } })');
+  console.log('adapter: "ky", adapterConfig: { retry: { limit: 3 } }');
   console.log('```');
 }
 
@@ -281,13 +264,13 @@ function compareAdapters(): void {
 async function performanceTest(): Promise<void> {
   console.log('\n⚡ Performance Testing:');
   const testUrl = { id: '550e8400-e29b-41d4-a716-446655440000' };
-  
+
   const adapters = [
     { name: 'Fetch', client: fetchClient },
     { name: 'Axios', client: axiosClient },
     { name: 'Ky', client: kyClient },
   ] as const;
-  
+
   for (const { name, client } of adapters) {
     const start = performance.now();
     try {
@@ -323,16 +306,11 @@ export {
   fetchClient,
   axiosClient,
   kyClient,
-  customAxiosClient,
-  customKyClient,
+  axiosAuthClient,
+  kyAdvancedRetryClient,
   type ClientType,
   type ApiContractType,
 };
 
 // Export schemas for reuse
-export {
-  UserSchema,
-  CreateUserRequestSchema,
-  UserIdRequestSchema,
-  apiContract,
-};
+export { UserSchema, CreateUserRequestSchema, UserIdRequestSchema, apiContract };

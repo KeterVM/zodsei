@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { HttpAdapter, AdapterType } from './adapters';
+import type { AdapterType } from './adapters';
 import type { FetchAdapterConfig } from './adapters/fetch';
 import type { AxiosAdapterConfig } from './adapters/axios';
 import type { KyAdapterConfig } from './adapters/ky';
@@ -12,8 +12,8 @@ export type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 
 export interface EndpointDefinition {
   path: string;
   method: HttpMethod;
-  request: z.ZodSchema;
-  response: z.ZodSchema;
+  request?: z.ZodSchema;
+  response?: z.ZodSchema;
 }
 
 // Contract type
@@ -32,8 +32,6 @@ export interface Contract {
 export function defineContract<T extends Contract>(contract: T): T {
   return contract;
 }
-
-
 
 /**
  * Create client type from contract - supports nested access with schema support
@@ -74,10 +72,6 @@ export type ClientConfig =
       adapterConfig?: KyAdapterConfig;
     })
   | (BaseClientConfig & {
-      adapter: HttpAdapter;
-      adapterConfig?: Record<string, any>;
-    })
-  | (BaseClientConfig & {
       adapter?: undefined;
       adapterConfig?: FetchAdapterConfig; // Default to fetch
     });
@@ -91,7 +85,7 @@ export interface InternalClientConfig {
   timeout: number;
   retries: number;
   middleware: Middleware[];
-  adapter: AdapterType | HttpAdapter;
+  adapter: AdapterType | undefined;
   adapterConfig: Record<string, any>;
 }
 
@@ -142,12 +136,19 @@ export type SeparateRequestData<T> =
       };
 
 // Schema inference types
-export type InferRequestType<T extends EndpointDefinition> = z.infer<T['request']>;
-export type InferResponseType<T extends EndpointDefinition> = z.infer<T['response']>;
+export type InferRequestType<T extends EndpointDefinition> = 
+  T['request'] extends z.ZodSchema ? z.infer<T['request']> : void;
+
+export type InferResponseType<T extends EndpointDefinition> = 
+  T['response'] extends z.ZodSchema ? z.infer<T['response']> : unknown;
 
 // Enhanced endpoint method with schema access
 export interface EndpointMethodWithSchema<T extends EndpointDefinition> {
-  (data: InferRequestType<T>): Promise<InferResponseType<T>>;
+  (
+    ...args: T['request'] extends z.ZodSchema 
+      ? [data: InferRequestType<T>] 
+      : []
+  ): Promise<InferResponseType<T>>;
   schema: {
     request: T['request'];
     response: T['response'];

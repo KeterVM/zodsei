@@ -16,14 +16,6 @@ export interface HttpAdapter {
 }
 
 /**
- * Adapter configuration options
- */
-export interface AdapterConfig {
-  timeout?: number;
-  [key: string]: any;
-}
-
-/**
  * Supported adapter types
  */
 export type AdapterType = 'fetch' | 'axios' | 'ky';
@@ -32,14 +24,9 @@ export type AdapterType = 'fetch' | 'axios' | 'ky';
  * Adapter factory function
  */
 export async function createAdapter(
-  type: AdapterType | HttpAdapter,
-  config?: Record<string, any>
+  type: AdapterType,
+  config?: Record<string, unknown>
 ): Promise<HttpAdapter> {
-  // If an adapter instance is passed, return it directly
-  if (typeof type === 'object' && 'request' in type) {
-    return type;
-  }
-
   // Create adapter based on type
   switch (type) {
     case 'fetch': {

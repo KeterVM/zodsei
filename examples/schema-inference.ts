@@ -14,13 +14,13 @@ import {
 const UserSchema = z.object({
   id: z.number(),
   name: z.string(),
-  email: z.string().email(),
+  email: z.email(),
   age: z.number().optional(),
 });
 
 const CreateUserSchema = z.object({
   name: z.string(),
-  email: z.string().email(),
+  email: z.email(),
   age: z.number().optional(),
 });
 

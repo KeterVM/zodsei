@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
-import { 
-  createClient, 
-  createAdapter, 
+import {
+  createClient,
+  createAdapter,
   isAdapterAvailable,
   FetchAdapter,
   AxiosAdapter,
-  KyAdapter 
+  KyAdapter,
 } from '../src';
 
 // Mock fetch, axios, and ky
@@ -16,13 +16,13 @@ global.fetch = mockFetch;
 // Mock axios
 vi.mock('axios', () => ({
   default: {
-    request: vi.fn()
-  }
+    request: vi.fn(),
+  },
 }));
 
 // Mock ky
 vi.mock('ky', () => ({
-  default: vi.fn()
+  default: vi.fn(),
 }));
 
 describe('HTTP Adapters', () => {
@@ -36,14 +36,14 @@ describe('HTTP Adapters', () => {
       path: '/users/:id',
       method: 'get' as const,
       request: z.object({
-        id: z.string().uuid()
+        id: z.string().uuid(),
       }),
       response: z.object({
         id: z.string().uuid(),
         name: z.string(),
-        email: z.string().email()
-      })
-    }
+        email: z.string().email(),
+      }),
+    },
   } as const;
 
   describe('Adapter Factory', () => {
@@ -63,12 +63,6 @@ describe('HTTP Adapters', () => {
       const adapter = await createAdapter('ky');
       expect(adapter.name).toBe('ky');
       expect(adapter).toBeInstanceOf(KyAdapter);
-    });
-
-    it('should return adapter instance when passed', async () => {
-      const customAdapter = new FetchAdapter();
-      const adapter = await createAdapter(customAdapter);
-      expect(adapter).toBe(customAdapter);
     });
 
     it('should throw error for unsupported adapter type', async () => {
@@ -100,7 +94,7 @@ describe('HTTP Adapters', () => {
       const mockResponse = {
         id: '123e4567-e89b-12d3-a456-426614174000',
         name: 'John Doe',
-        email: 'john@example.com'
+        email: 'john@example.com',
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -108,16 +102,16 @@ describe('HTTP Adapters', () => {
         status: 200,
         statusText: 'OK',
         headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => mockResponse
+        json: async () => mockResponse,
       });
 
       const client = createClient(apiContract, {
         baseUrl: 'https://api.example.com',
-        adapter: 'fetch'
+        adapter: 'fetch',
       });
 
       const result = await client.getUser({
-        id: '123e4567-e89b-12d3-a456-426614174000'
+        id: '123e4567-e89b-12d3-a456-426614174000',
       });
 
       expect(result).toEqual(mockResponse);
@@ -126,8 +120,8 @@ describe('HTTP Adapters', () => {
         expect.objectContaining({
           method: 'GET',
           headers: expect.objectContaining({
-            'Content-Type': 'application/json'
-          })
+            'Content-Type': 'application/json',
+          }),
         })
       );
     });
@@ -137,12 +131,14 @@ describe('HTTP Adapters', () => {
 
       const client = createClient(apiContract, {
         baseUrl: 'https://api.example.com',
-        adapter: 'fetch'
+        adapter: 'fetch',
       });
 
-      await expect(client.getUser({
-        id: '123e4567-e89b-12d3-a456-426614174000'
-      })).rejects.toThrow('Network error');
+      await expect(
+        client.getUser({
+          id: '123e4567-e89b-12d3-a456-426614174000',
+        })
+      ).rejects.toThrow('Network error');
     });
 
     it('should handle HTTP errors', async () => {
@@ -151,17 +147,19 @@ describe('HTTP Adapters', () => {
         status: 404,
         statusText: 'Not Found',
         headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => ({ error: 'User not found' })
+        json: async () => ({ error: 'User not found' }),
       });
 
       const client = createClient(apiContract, {
         baseUrl: 'https://api.example.com',
-        adapter: 'fetch'
+        adapter: 'fetch',
       });
 
-      await expect(client.getUser({
-        id: '123e4567-e89b-12d3-a456-426614174000'
-      })).rejects.toThrow('HTTP 404: Not Found');
+      await expect(
+        client.getUser({
+          id: '123e4567-e89b-12d3-a456-426614174000',
+        })
+      ).rejects.toThrow('HTTP 404: Not Found');
     });
   });
 
@@ -170,7 +168,7 @@ describe('HTTP Adapters', () => {
       const mockResponse = {
         id: '123e4567-e89b-12d3-a456-426614174000',
         name: 'John Doe',
-        email: 'john@example.com'
+        email: 'john@example.com',
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -178,7 +176,7 @@ describe('HTTP Adapters', () => {
         status: 200,
         statusText: 'OK',
         headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => mockResponse
+        json: async () => mockResponse,
       });
 
       const client = createClient(apiContract, {
@@ -186,22 +184,22 @@ describe('HTTP Adapters', () => {
         adapter: 'fetch',
         adapterConfig: {
           timeout: 5000,
-          credentials: 'include'
-        }
+          credentials: 'include',
+        },
       });
 
       const result = await client.getUser({
-        id: '123e4567-e89b-12d3-a456-426614174000'
+        id: '123e4567-e89b-12d3-a456-426614174000',
       });
 
       expect(result).toEqual(mockResponse);
     });
 
-    it('should use custom adapter instance', async () => {
+    it('should use adapter with custom config', async () => {
       const mockResponse = {
         id: '123e4567-e89b-12d3-a456-426614174000',
         name: 'John Doe',
-        email: 'john@example.com'
+        email: 'john@example.com',
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -209,21 +207,20 @@ describe('HTTP Adapters', () => {
         status: 200,
         statusText: 'OK',
         headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => mockResponse
-      });
-
-      const customAdapter = new FetchAdapter({
-        timeout: 10000,
-        credentials: 'same-origin'
+        json: async () => mockResponse,
       });
 
       const client = createClient(apiContract, {
         baseUrl: 'https://api.example.com',
-        adapter: customAdapter
+        adapter: 'fetch',
+        adapterConfig: {
+          timeout: 10000,
+          credentials: 'same-origin',
+        },
       });
 
       const result = await client.getUser({
-        id: '123e4567-e89b-12d3-a456-426614174000'
+        id: '123e4567-e89b-12d3-a456-426614174000',
       });
 
       expect(result).toEqual(mockResponse);
@@ -235,7 +232,7 @@ describe('HTTP Adapters', () => {
       const adapter = new FetchAdapter({
         timeout: 15000,
         credentials: 'include',
-        mode: 'cors'
+        mode: 'cors',
       });
 
       expect(adapter.name).toBe('fetch');
@@ -245,7 +242,7 @@ describe('HTTP Adapters', () => {
       const mockResponse = {
         id: '123e4567-e89b-12d3-a456-426614174000',
         name: 'John Doe',
-        email: 'john@example.com'
+        email: 'john@example.com',
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -253,7 +250,7 @@ describe('HTTP Adapters', () => {
         status: 200,
         statusText: 'OK',
         headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => mockResponse
+        json: async () => mockResponse,
       });
 
       const client = createClient(apiContract, {
@@ -261,12 +258,12 @@ describe('HTTP Adapters', () => {
         adapter: 'fetch',
         timeout: 20000,
         adapterConfig: {
-          credentials: 'include'
-        }
+          credentials: 'include',
+        },
       });
 
       const result = await client.getUser({
-        id: '123e4567-e89b-12d3-a456-426614174000'
+        id: '123e4567-e89b-12d3-a456-426614174000',
       });
 
       expect(result).toEqual(mockResponse);

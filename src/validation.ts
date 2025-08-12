@@ -6,7 +6,11 @@ import { ValidationError } from './errors';
  */
 
 // Validate request data
-export function validateRequest<T>(schema: z.ZodSchema<T>, data: unknown): T {
+export function validateRequest<T>(schema: z.ZodSchema<T> | undefined, data: unknown): T {
+  if (!schema) {
+    return data as T;
+  }
+  
   try {
     return schema.parse(data);
   } catch (error) {
@@ -18,7 +22,11 @@ export function validateRequest<T>(schema: z.ZodSchema<T>, data: unknown): T {
 }
 
 // Validate response data
-export function validateResponse<T>(schema: z.ZodSchema<T>, data: unknown): T {
+export function validateResponse<T>(schema: z.ZodSchema<T> | undefined, data: unknown): T {
+  if (!schema) {
+    return data as T;
+  }
+  
   try {
     return schema.parse(data);
   } catch (error) {
@@ -31,9 +39,13 @@ export function validateResponse<T>(schema: z.ZodSchema<T>, data: unknown): T {
 
 // Safe parse (no error throwing)
 export function safeParseRequest<T>(
-  schema: z.ZodSchema<T>, 
+  schema: z.ZodSchema<T> | undefined, 
   data: unknown
 ): { success: true; data: T } | { success: false; error: ValidationError } {
+  if (!schema) {
+    return { success: true, data: data as T };
+  }
+  
   try {
     const result = schema.parse(data);
     return { success: true, data: result };
@@ -50,9 +62,13 @@ export function safeParseRequest<T>(
 
 // Safe parse response
 export function safeParseResponse<T>(
-  schema: z.ZodSchema<T>, 
+  schema: z.ZodSchema<T> | undefined, 
   data: unknown
 ): { success: true; data: T } | { success: false; error: ValidationError } {
+  if (!schema) {
+    return { success: true, data: data as T };
+  }
+  
   try {
     const result = schema.parse(data);
     return { success: true, data: result };
@@ -68,7 +84,7 @@ export function safeParseResponse<T>(
 }
 
 // Create optional validator
-export function createValidator<T>(schema: z.ZodSchema<T>, enabled: boolean) {
+export function createValidator<T>(schema: z.ZodSchema<T> | undefined, enabled: boolean) {
   return {
     validateRequest: enabled 
       ? (data: unknown) => validateRequest(schema, data)

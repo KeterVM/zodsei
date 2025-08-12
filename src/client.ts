@@ -76,9 +76,7 @@ export class ZodseiClient<T extends Contract> {
       value &&
       typeof value === 'object' &&
       'path' in value &&
-      'method' in value &&
-      'request' in value &&
-      'response' in value
+      'method' in value
     );
   }
 
@@ -123,7 +121,9 @@ export class ZodseiClient<T extends Contract> {
   private createEndpointMethod(endpointName: string, endpoint?: EndpointDefinition) {
     const targetEndpoint = endpoint || (this.contract[endpointName] as EndpointDefinition);
 
-    const method = async (data: InferRequestType<typeof targetEndpoint>) => {
+    const method = async (...args: any[]) => {
+      // 如果有 request schema，取第一个参数；否则传 undefined
+      const data = targetEndpoint.request ? args[0] : undefined;
       return this.executeEndpoint(targetEndpoint, data) as Promise<InferResponseType<typeof targetEndpoint>>;
     };
 
@@ -136,8 +136,8 @@ export class ZodseiClient<T extends Contract> {
 
     // Attach type inference helpers (for development/debugging)
     (method as EndpointMethodWithSchema<typeof targetEndpoint>).infer = {
-      request: {} as InferRequestType<typeof targetEndpoint>,
-      response: {} as InferResponseType<typeof targetEndpoint>,
+      request: (targetEndpoint.request ? {} : undefined) as InferRequestType<typeof targetEndpoint>,
+      response: (targetEndpoint.response ? {} : {}) as InferResponseType<typeof targetEndpoint>,
     };
 
     return method as EndpointMethodWithSchema<typeof targetEndpoint>;
@@ -215,8 +215,6 @@ export class ZodseiClient<T extends Contract> {
 
       if (typeof this.config.adapter === 'string') {
         this.adapter = await createAdapter(this.config.adapter, adapterConfig);
-      } else if (this.config.adapter) {
-        this.adapter = this.config.adapter;
       } else {
         // Default to fetch adapter
         this.adapter = await createAdapter('fetch', adapterConfig);

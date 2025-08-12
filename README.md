@@ -138,6 +138,54 @@ const newUser = await client.createUser({
 // newUser is also automatically typed
 ```
 
+## Core Concepts
+
+### Type inference on endpoint methods
+
+```ts
+// Fully typed response inferred from the contract
+const user = await client.getUser({ id: '123e4567-e89b-12d3-a456-426614174000' });
+// `user` type is inferred from the endpoint response schema
+```
+
+### Method-level type helpers: .infer
+
+```ts
+// Dev-time type helpers derived from the endpoint definition
+type GetUserRequest = typeof client.getUser.infer.request;
+type GetUserResponse = typeof client.getUser.infer.response;
+```
+
+### Method-level schemas: .schema
+
+```ts
+// Runtime access to Zod schemas
+const reqSchema = client.getUser.schema.request;
+const resSchema = client.getUser.schema.response;
+```
+
+### Contract-level schema explorer: $schema
+
+```ts
+// Explore the contract at runtime
+const endpointPaths = client.$schema.getEndpointPaths();
+const info = client.$schema.describeEndpoint('getUser');
+// info: { path, method, requestSchema, responseSchema, requestType, responseType }
+```
+
+### Nested contracts
+
+```ts
+type LoginRequest = typeof client.auth.login.infer.request;
+const getByIdSchemas = client.users.getById.schema;
+```
+
+### Re-exported z
+
+```ts
+import { z } from 'zodsei'; // re-exported for convenience
+```
+
 ## API Reference
 
 ### Contract Definition
@@ -280,7 +328,7 @@ const client = createClient(contract, {
   // adapter: 'fetch' is implicit
 });
 
-// Axios - Full-featured with interceptors
+// Axios - Full-featured HTTP client
 const client = createClient(contract, {
   baseUrl: 'https://api.example.com',
   adapter: 'axios'
@@ -293,83 +341,7 @@ const client = createClient(contract, {
 });
 ```
 
-#### Advanced Configuration
-
-```typescript
-// String-based with config
-const client = createClient(contract, {
-  baseUrl: 'https://api.example.com',
-  adapter: 'axios',
-  adapterConfig: {
-    timeout: 15000,
-    withCredentials: true
-  }
-});
-
-// Instance-based for maximum control
-import { AxiosAdapter } from 'zodsei';
-
-const client = createClient(contract, {
-  baseUrl: 'https://api.example.com',
-  adapter: new AxiosAdapter({
-    timeout: 20000,
-    auth: { username: 'user', password: 'pass' },
-    interceptors: {
-      request: [{ onFulfilled: addAuthToken }],
-      response: [{ onRejected: handleAuthError }]
-    }
-  })
-});
-```
-
-#### Feature Comparison
-
-| Feature | Fetch | Axios | Ky |
-|---------|-------|-------|----|
-| **Bundle Size** | 0KB | ~13KB | ~4KB |
-| **Dependencies** | None | Required | Required |
-| **Built-in** | ✅ Native | ❌ Install required | ❌ Install required |
-| **Platforms** | Node.js, Browser | Node.js, Browser | Node.js, Browser |
-| **Interceptors** | ❌ | ✅ Request/Response | ❌ |
-| **Auto Retry** | ❌ | ❌ | ✅ Built-in |
-| **Advanced Features** | Basic | Proxy, Auth, etc. | Hooks, Timeout |
-| **Best For** | Simple APIs | Complex APIs | Modern APIs |
-
-#### Axios Interceptors
-
-For advanced request/response handling, use Axios interceptors:
-
-```typescript
-import { AxiosAdapter } from 'zodsei';
-
-const client = createClient(contract, {
-  baseUrl: 'https://api.example.com',
-  adapter: new AxiosAdapter({
-    interceptors: {
-      request: [{
-        onFulfilled: (config) => {
-          // Add authentication
-          const token = localStorage.getItem('token');
-          if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
-          }
-          return config;
-        }
-      }],
-      response: [{
-        onRejected: (error) => {
-          // Handle auth errors globally
-          if (error.response?.status === 401) {
-            localStorage.removeItem('token');
-            window.location.href = '/login';
-          }
-          return Promise.reject(error);
-        }
-      }]
-    }
-  })
-});
-```
+For advanced configuration and feature comparison, see the Advanced section below. For request/response lifecycle, use client-level middleware.
 
 ### Error Handling
 
@@ -398,7 +370,51 @@ try {
 }
 ```
 
-## Advanced Usage
+## Advanced
+
+### Adapters: Advanced Configuration
+
+```typescript
+// String-based with config
+const client = createClient(contract, {
+  baseUrl: 'https://api.example.com',
+  adapter: 'axios',
+  adapterConfig: {
+    timeout: 15000,
+    withCredentials: true
+  }
+});
+```
+
+### Feature Comparison
+
+| Feature | Fetch | Axios | Ky |
+|---------|-------|-------|----|
+| **Bundle Size** | 0KB | ~13KB | ~4KB |
+| **Dependencies** | None | Required | Required |
+| **Built-in** | ✅ Native | ❌ Install required | ❌ Install required |
+| **Platforms** | Node.js, Browser | Node.js, Browser | Node.js, Browser |
+| **Interceptors** | ❌ | ❌ | ❌ |
+| **Auto Retry** | ❌ | ❌ | ✅ Built-in |
+| **Advanced Features** | Basic | Proxy, Auth, etc. | Hooks, Timeout |
+| **Best For** | Simple APIs | Complex APIs | Modern APIs |
+
+### Middleware (Recommended)
+
+Use middleware to implement cross-cutting concerns (auth, logging, retries, error handling):
+
+```typescript
+const authMiddleware = async (req, next) => {
+  const token = localStorage.getItem('token');
+  if (token) req.headers.Authorization = `Bearer ${token}`;
+  return next(req);
+};
+
+const client = createClient(contract, {
+  baseUrl: 'https://api.example.com',
+  middleware: [authMiddleware]
+});
+```
 
 ### Path Parameters
 

@@ -8,12 +8,14 @@ import type { Contract, EndpointDefinition } from './types';
 /**
  * Extract request type from endpoint definition
  */
-export type InferRequestType<T extends EndpointDefinition> = z.infer<T['request']>;
+export type InferRequestType<T extends EndpointDefinition> = 
+  T['request'] extends z.ZodSchema ? z.infer<T['request']> : void;
 
 /**
  * Extract response type from endpoint definition
  */
-export type InferResponseType<T extends EndpointDefinition> = z.infer<T['response']>;
+export type InferResponseType<T extends EndpointDefinition> = 
+  T['response'] extends z.ZodSchema ? z.infer<T['response']> : unknown;
 
 /**
  * Extract all endpoint types from a contract
@@ -126,8 +128,8 @@ export class SchemaExtractor<T extends Contract> {
     ? {
         path: string;
         method: string;
-        requestSchema: z.ZodSchema;
-        responseSchema: z.ZodSchema;
+        requestSchema: z.ZodSchema | undefined;
+        responseSchema: z.ZodSchema | undefined;
         requestType: string;
         responseType: string;
       }
@@ -139,8 +141,8 @@ export class SchemaExtractor<T extends Contract> {
       method: endpoint.method,
       requestSchema: endpoint.request,
       responseSchema: endpoint.response,
-      requestType: this.getSchemaDescription(endpoint.request),
-      responseType: this.getSchemaDescription(endpoint.response),
+      requestType: endpoint.request ? this.getSchemaDescription(endpoint.request) : 'void',
+      responseType: endpoint.response ? this.getSchemaDescription(endpoint.response) : 'unknown',
     };
 
     return result as T[K] extends EndpointDefinition
@@ -158,7 +160,11 @@ export class SchemaExtractor<T extends Contract> {
   /**
    * Generate schema description for documentation
    */
-  private getSchemaDescription(schema: z.ZodSchema): string {
+  private getSchemaDescription(schema: z.ZodSchema | undefined): string {
+    if (!schema) {
+      return 'undefined';
+    }
+    
     try {
       // Try to get a basic description of the schema
       if (schema instanceof z.ZodObject) {
@@ -236,9 +242,7 @@ export class SchemaExtractor<T extends Contract> {
       typeof value === 'object' &&
       value !== null &&
       'path' in value &&
-      'method' in value &&
-      'request' in value &&
-      'response' in value
+      'method' in value
     );
   }
 
@@ -266,7 +270,9 @@ export function createSchemaExtractor<T extends Contract>(contract: T): SchemaEx
  * Utility type to infer endpoint method signature
  */
 export type InferEndpointMethod<T extends EndpointDefinition> = (
-  data: InferRequestType<T>
+  ...args: T['request'] extends z.ZodSchema 
+    ? [data: InferRequestType<T>] 
+    : []
 ) => Promise<InferResponseType<T>>;
 
 /**
@@ -278,5 +284,7 @@ export function extractTypeInfo<T extends EndpointDefinition>(endpoint: T) {
     responseSchema: endpoint.response,
     method: endpoint.method,
     path: endpoint.path,
+    hasRequestSchema: Boolean(endpoint.request),
+    hasResponseSchema: Boolean(endpoint.response),
   };
 }
