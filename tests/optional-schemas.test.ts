@@ -1,8 +1,16 @@
 import { z } from 'zod';
 import { defineContract, createClient, extractTypeInfo } from '../src';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Mock fetch
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
 
 describe('Optional Schemas', () => {
+  beforeEach(() => {
+    mockFetch.mockClear();
+  });
+
   const contract = defineContract({
     // 完整的端点：有 request 和 response schema
     createUser: {
@@ -203,6 +211,196 @@ describe('Optional Schemas', () => {
       expect(typeof client.getUsers).toBe('function');
       expect(typeof client.deleteUser).toBe('function');
       expect(typeof client.healthCheck).toBe('function');
+    });
+  });
+
+  describe('Actual HTTP Requests', () => {
+    const client = createClient(contract, {
+      baseUrl: 'https://api.example.com',
+    });
+
+    it('should send requests with request schema validation', async () => {
+      // Mock 成功的响应
+      const mockUser = {
+        id: '123',
+        name: 'John Doe',
+        email: 'john@example.com',
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        statusText: 'Created',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockUser,
+      });
+
+      // 测试有 request schema 的端点
+      const result = await client.createUser({
+        name: 'John Doe',
+        email: 'john@example.com',
+      });
+
+      expect(result.id).toBe('123');
+      expect(result.name).toBe('John Doe');
+      expect(result.email).toBe('john@example.com');
+      
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/users',
+        expect.objectContaining({
+          method: 'POST',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+          }),
+          body: JSON.stringify({
+            name: 'John Doe',
+            email: 'john@example.com',
+          }),
+        })
+      );
+    });
+
+    it('should send requests without request schema', async () => {
+      // Mock 成功的响应
+      const mockUsers = [
+        {
+          id: '123',
+          name: 'John Doe',
+          email: 'john@example.com',
+        },
+      ];
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockUsers,
+      });
+
+      // 测试没有 request schema 的端点（不传参数）
+      const result = await client.getUsers();
+
+      expect(Array.isArray(result)).toBe(true);
+      expect(result[0].id).toBe('123');
+      
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/users',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+          }),
+        })
+      );
+    });
+
+    it('should send requests with only request schema', async () => {
+      // Mock 成功的响应（任意格式，因为没有 response schema）
+      const mockResponse = 'User deleted successfully';
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockResponse,
+      });
+
+      // 测试只有 request schema 的端点
+      const result = await client.deleteUser({ id: '123' });
+
+      expect(result).toBe('User deleted successfully');
+      
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/users/123',
+        expect.objectContaining({
+          method: 'DELETE',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+          }),
+          // DELETE 请求不应该有 body，因为 id 是路径参数
+        })
+      );
+    });
+
+    it('should send requests without any schema', async () => {
+      // Mock 成功的响应（任意格式，因为没有 response schema）
+      const mockResponse = { status: 'ok', timestamp: Date.now() };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => mockResponse,
+      });
+
+      // 测试既没有 request 也没有 response schema 的端点（不传参数）
+      const result = await client.healthCheck();
+
+      expect((result as any).status).toBe('ok');
+      expect((result as any).timestamp).toBeDefined();
+      
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://api.example.com/health',
+        expect.objectContaining({
+          method: 'GET',
+          headers: expect.objectContaining({
+            'Content-Type': 'application/json',
+          }),
+        })
+      );
+    });
+
+    it('should validate request data when schema is present', async () => {
+      // 测试 request schema 验证
+      await expect(
+        client.createUser({
+          name: 'John Doe',
+          // 缺少 email 字段，应该抛出验证错误
+        } as any)
+      ).rejects.toThrow();
+    });
+
+    it('should validate response data when schema is present', async () => {
+      // Mock 无效的响应数据
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 201,
+        statusText: 'Created',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => ({
+          // 缺少必需的字段，应该导致验证失败
+          id: '123',
+          // name: 'John Doe', // 缺少
+          // email: 'john@example.com', // 缺少
+        }),
+      });
+
+      await expect(
+        client.createUser({
+          name: 'John Doe',
+          email: 'john@example.com',
+        })
+      ).rejects.toThrow();
+    });
+
+    it('should skip validation when schema is not present', async () => {
+      // Mock 任意格式的响应
+      const arbitraryResponse = 'any random response format';
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => arbitraryResponse,
+      });
+
+      // 这应该成功，因为 healthCheck 没有 response schema（不传参数）
+      const result = await client.healthCheck();
+      expect(result).toBe('any random response format');
     });
   });
 });

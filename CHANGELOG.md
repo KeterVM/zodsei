@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2025-08-13
+
+### Fixed
+
+- **Optional Schemas HTTP Request Testing**: Added comprehensive HTTP request tests for optional schemas functionality
+  - Fixed `separateParams` utility to handle `null`/`undefined` data for endpoints without request schemas
+  - Added proper test coverage for all optional schema scenarios: endpoints with/without request/response schemas
+  - Improved test reliability using mock fetch patterns consistent with existing test suite
+- **Path Parameter Handling**: Corrected DELETE request handling to properly extract path parameters from URL instead of request body
+
+### Tests
+
+- **Enhanced Test Coverage**: Added complete HTTP request testing for optional schemas feature
+  - Tests for endpoints with request schema validation (`createUser`)
+  - Tests for endpoints without request schema (`getUsers`, `healthCheck`)
+  - Tests for endpoints with only request schema (`deleteUser`)
+  - Tests for request/response validation behavior with optional schemas
+  - Tests for proper path parameter extraction and URL construction
+
+### Technical
+
+- **`separateParams` Utility**: Enhanced to handle `null`/`undefined` input data gracefully
+- **Test Infrastructure**: Improved mock fetch setup following project testing patterns
+
 ## [0.5.0] - 2025-08-13
 
 ### Added

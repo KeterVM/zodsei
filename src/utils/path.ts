@@ -49,11 +49,16 @@ export function buildUrl(baseUrl: string, path: string, query?: Record<string, a
 // Separate path params and query params
 export function separateParams(
   path: string, 
-  data: Record<string, any>
+  data: Record<string, any> | null | undefined
 ): { pathParams: Record<string, string>; queryParams: Record<string, any> } {
   const pathParamNames = extractPathParamNames(path);
   const pathParams: Record<string, string> = {};
   const queryParams: Record<string, any> = {};
+  
+  // Handle null/undefined data
+  if (!data) {
+    return { pathParams, queryParams };
+  }
   
   for (const [key, value] of Object.entries(data)) {
     if (pathParamNames.includes(key)) {
