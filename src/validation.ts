@@ -6,7 +6,7 @@ import { ValidationError } from './errors';
  */
 
 // Validate request data
-export function validateRequest<T>(schema: z.ZodSchema<T> | undefined, data: unknown): T {
+export function validateRequest<T>(schema: z.ZodType<T> | undefined, data: unknown): T {
   if (!schema) {
     return data as T;
   }
@@ -22,7 +22,7 @@ export function validateRequest<T>(schema: z.ZodSchema<T> | undefined, data: unk
 }
 
 // Validate response data
-export function validateResponse<T>(schema: z.ZodSchema<T> | undefined, data: unknown): T {
+export function validateResponse<T>(schema: z.ZodType<T> | undefined, data: unknown): T {
   if (!schema) {
     return data as T;
   }
@@ -39,7 +39,7 @@ export function validateResponse<T>(schema: z.ZodSchema<T> | undefined, data: un
 
 // Safe parse (no error throwing)
 export function safeParseRequest<T>(
-  schema: z.ZodSchema<T> | undefined, 
+  schema: z.ZodType<T> | undefined, 
   data: unknown
 ): { success: true; data: T } | { success: false; error: ValidationError } {
   if (!schema) {
@@ -62,7 +62,7 @@ export function safeParseRequest<T>(
 
 // Safe parse response
 export function safeParseResponse<T>(
-  schema: z.ZodSchema<T> | undefined, 
+  schema: z.ZodType<T> | undefined, 
   data: unknown
 ): { success: true; data: T } | { success: false; error: ValidationError } {
   if (!schema) {
@@ -84,7 +84,7 @@ export function safeParseResponse<T>(
 }
 
 // Create optional validator
-export function createValidator<T>(schema: z.ZodSchema<T> | undefined, enabled: boolean) {
+export function createValidator<T>(schema: z.ZodType<T> | undefined, enabled: boolean) {
   return {
     validateRequest: enabled 
       ? (data: unknown) => validateRequest(schema, data)

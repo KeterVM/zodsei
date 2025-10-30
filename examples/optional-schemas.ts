@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defineContract, createClient, extractTypeInfo } from '../src';
+import axios from 'axios';
 
 // 定义包含可选 schema 的合约
 const contract = defineContract({
@@ -9,7 +10,7 @@ const contract = defineContract({
     method: 'post',
     request: z.object({
       name: z.string(),
-      email: z.string().email(),
+      email: z.email(),
     }),
     response: z.object({
       id: z.string(),
@@ -25,7 +26,7 @@ const contract = defineContract({
     response: z.array(z.object({
       id: z.string(),
       name: z.string(),
-      email: z.string(),
+      email: z.email(),
     })),
   },
 
@@ -69,7 +70,7 @@ const contract = defineContract({
 
 // 创建客户端
 const client = createClient(contract, {
-  baseUrl: 'https://api.example.com',
+  axios: axios.create({ baseURL: 'https://api.example.com' }),
 });
 
 async function demonstrateOptionalSchemas() {

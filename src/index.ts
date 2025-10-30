@@ -77,17 +77,7 @@ export {
 export { mergeHeaders } from './utils/request';
 
 // Adapter exports
-export {
-  createAdapter,
-  getDefaultAdapter,
-  isAdapterAvailable,
-  type HttpAdapter,
-  type AdapterType,
-} from './adapters';
-
-export { FetchAdapter, type FetchAdapterConfig } from './adapters/fetch';
-export { AxiosAdapter, type AxiosAdapterConfig } from './adapters/axios';
-export { KyAdapter, type KyAdapterConfig } from './adapters/ky';
+export { AxiosAdapter } from './adapters/axios';
 
 // Re-export zod for user convenience
 export { z } from 'zod';

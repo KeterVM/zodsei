@@ -5,6 +5,7 @@ import {
   type InferRequestType,
   type InferResponseType,
 } from '../src';
+import axios from 'axios';
 
 /**
  * Example demonstrating the new schema inference and type extraction features
@@ -60,7 +61,7 @@ const contract = defineContract({
       method: 'put' as const,
       request: z.object({
         name: z.string().optional(),
-        email: z.string().email().optional(),
+        email: z.email().optional(),
       }),
       response: UserSchema,
     },
@@ -81,7 +82,7 @@ const contract = defineContract({
 
 // Create enhanced client with schema support
 const client = createClient(contract, {
-  baseUrl: 'https://api.example.com',
+  axios: axios.create({ baseURL: 'https://api.example.com' }),
 });
 
 // Example usage demonstrating the new features

@@ -1,8 +1,9 @@
 import { z, createClient, defineContract, type Contract } from '../src';
+import axios from 'axios';
 
 // Sample schemas for demonstration
 const UserSchema = z.object({
-  id: z.uuidv4(),
+  id: z.uuid(),
   name: z.string(),
   email: z.email(),
 });
@@ -18,7 +19,7 @@ const contract1 = {
   getUser: {
     path: '/users/:id',
     method: 'get' as const,
-    request: z.object({ id: z.uuidv4() }),
+    request: z.object({ id: z.uuid() }),
     response: UserSchema,
   },
   createUser: {
@@ -46,7 +47,7 @@ const contract2 = defineContract({
   getUser: {
     path: '/users/:id',
     method: 'get' as const,
-    request: z.object({ id: z.uuidv4() }),
+    request: z.object({ id: z.uuid() }),
     response: UserSchema,
   },
   createUser: {
@@ -79,7 +80,7 @@ const contract3 = createContract({
   getUser: {
     path: '/users/:id',
     method: 'get' as const,
-    request: z.object({ id: z.uuidv4() }),
+    request: z.object({ id: z.uuid() }),
     response: UserSchema,
   },
   createUser: {
@@ -108,7 +109,7 @@ const contract4 = {
   getUser: {
     path: '/users/:id',
     method: 'get' as const,
-    request: z.object({ id: z.uuidv4() }),
+    request: z.object({ id: z.uuid() }),
     response: UserSchema,
   },
   createUser: {
@@ -137,7 +138,7 @@ const contractWrong: Contract = {
   getUser: {
     path: '/users/:id',
     method: 'get' as const, // 这里的 as const 会被擦除
-    request: z.object({ id: z.uuidv4() }),
+    request: z.object({ id: z.uuid() }),
     response: UserSchema,
   },
 };
@@ -156,10 +157,11 @@ console.log('❌ 影响客户端方法生成\n');
 console.log('🧪 实际使用测试:\n');
 
 // 所有正确的方案都能正常工作
-const client1 = createClient(contract1, { baseUrl: 'https://api.example.com' });
-const client2 = createClient(contract2, { baseUrl: 'https://api.example.com' });
-const client3 = createClient(contract3, { baseUrl: 'https://api.example.com' });
-const client4 = createClient(contract4, { baseUrl: 'https://api.example.com' });
+const axiosInstance = axios.create({ baseURL: 'https://api.example.com' });
+const client1 = createClient(contract1, { axios: axiosInstance });
+const client2 = createClient(contract2, { axios: axiosInstance });
+const client3 = createClient(contract3, { axios: axiosInstance });
+const client4 = createClient(contract4, { axios: axiosInstance });
 
 console.log('✅ 所有正确方案都能正常创建客户端');
 

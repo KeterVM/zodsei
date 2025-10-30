@@ -9,13 +9,13 @@ import type { Contract, EndpointDefinition } from './types';
  * Extract request type from endpoint definition
  */
 export type InferRequestType<T extends EndpointDefinition> = 
-  T['request'] extends z.ZodSchema ? z.infer<T['request']> : void;
+  T['request'] extends z.ZodType ? z.infer<T['request']> : void;
 
 /**
  * Extract response type from endpoint definition
  */
 export type InferResponseType<T extends EndpointDefinition> = 
-  T['response'] extends z.ZodSchema ? z.infer<T['response']> : unknown;
+  T['response'] extends z.ZodType ? z.infer<T['response']> : unknown;
 
 /**
  * Extract all endpoint types from a contract
@@ -128,8 +128,8 @@ export class SchemaExtractor<T extends Contract> {
     ? {
         path: string;
         method: string;
-        requestSchema: z.ZodSchema | undefined;
-        responseSchema: z.ZodSchema | undefined;
+        requestSchema: z.ZodType | undefined;
+        responseSchema: z.ZodType | undefined;
         requestType: string;
         responseType: string;
       }
@@ -149,8 +149,8 @@ export class SchemaExtractor<T extends Contract> {
       ? {
           path: string;
           method: string;
-          requestSchema: z.ZodSchema;
-          responseSchema: z.ZodSchema;
+          requestSchema: z.ZodType;
+          responseSchema: z.ZodType;
           requestType: string;
           responseType: string;
         }
@@ -160,7 +160,7 @@ export class SchemaExtractor<T extends Contract> {
   /**
    * Generate schema description for documentation
    */
-  private getSchemaDescription(schema: z.ZodSchema | undefined): string {
+  private getSchemaDescription(schema: z.ZodType | undefined): string {
     if (!schema) {
       return 'undefined';
     }
@@ -170,7 +170,7 @@ export class SchemaExtractor<T extends Contract> {
       if (schema instanceof z.ZodObject) {
         const shape = schema.shape;
         const fields = Object.keys(shape).map((key) => {
-          const field = shape[key] as z.ZodSchema;
+          const field = shape[key] as z.ZodType;
           return `${key}: ${this.getZodTypeDescription(field)}`;
         });
         return `{ ${fields.join(', ')} }`;
@@ -184,9 +184,10 @@ export class SchemaExtractor<T extends Contract> {
   /**
    * Get basic Zod type description
    */
-  private getZodTypeDescription(schema: z.ZodSchema): string {
+  private getZodTypeDescription(schema: z.ZodType): string {
     // Use the _def property to determine the type, which is more reliable
-    const def = (schema as z.ZodSchema & { _def?: { typeName?: string; type?: z.ZodSchema; innerType?: z.ZodSchema; value?: unknown } })._def;
+    const meta = schema as unknown as { def?: { typeName?: string; type?: z.ZodType; innerType?: z.ZodType; value?: unknown }; _def?: { typeName?: string; type?: z.ZodType; innerType?: z.ZodType; value?: unknown } };
+    const def = meta.def ?? meta._def;
     if (def?.typeName) {
       switch (def.typeName) {
         case 'ZodString': return 'string';
@@ -213,17 +214,17 @@ export class SchemaExtractor<T extends Contract> {
       if (schema instanceof z.ZodBoolean) return 'boolean';
       if (schema instanceof z.ZodArray) {
         // Safe access to element property
-        const element = (schema as z.ZodArray<z.ZodSchema>).element;
+        const element = (schema as z.ZodArray<z.ZodType>).element;
         return element ? `${this.getZodTypeDescription(element)}[]` : 'array';
       }
       if (schema instanceof z.ZodOptional) {
         // Safe access to unwrap method
-        const inner = (schema as z.ZodOptional<z.ZodSchema>).unwrap();
+        const inner = (schema as z.ZodOptional<z.ZodType>).unwrap();
         return inner ? `${this.getZodTypeDescription(inner)}?` : 'optional';
       }
       if (schema instanceof z.ZodNullable) {
         // Safe access to unwrap method
-        const inner = (schema as z.ZodNullable<z.ZodSchema>).unwrap();
+        const inner = (schema as z.ZodNullable<z.ZodType>).unwrap();
         return inner ? `${this.getZodTypeDescription(inner)} | null` : 'nullable';
       }
       if (schema instanceof z.ZodObject) return 'object';

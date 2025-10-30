@@ -11,9 +11,9 @@ import { ValidationError } from '../src/errors';
 
 describe('Validation Utilities', () => {
   const userSchema = z.object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     name: z.string().min(1),
-    email: z.string().email(),
+    email: z.email(),
     age: z.number().min(0).optional()
   });
 
@@ -56,7 +56,7 @@ describe('Validation Utilities', () => {
         parse: () => {
           throw new Error('Custom error');
         }
-      } as any;
+      } as unknown as z.ZodType<unknown>;
 
       expect(() => validateRequest(throwingSchema, validUser))
         .toThrow('Custom error');
@@ -88,7 +88,7 @@ describe('Validation Utilities', () => {
         parse: () => {
           throw new Error('Custom error');
         }
-      } as any;
+      } as unknown as z.ZodType<unknown>;
 
       expect(() => validateResponse(throwingSchema, validUser))
         .toThrow('Custom error');
@@ -118,7 +118,7 @@ describe('Validation Utilities', () => {
         parse: () => {
           throw new Error('Custom error');
         }
-      } as any;
+      } as unknown as z.ZodType<unknown>;
 
       const result = safeParseRequest(throwingSchema, validUser);
       expect(result.success).toBe(false);
@@ -153,7 +153,7 @@ describe('Validation Utilities', () => {
         parse: () => {
           throw new Error('Custom error');
         }
-      } as any;
+      } as unknown as z.ZodType<unknown>;
 
       const result = safeParseResponse(throwingSchema, validUser);
       expect(result.success).toBe(false);

@@ -34,10 +34,11 @@ export default tseslint.config(
           ignoreRestSiblings: true,
         },
       ],
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       '@typescript-eslint/no-empty-function': 'off',
+      '@typescript-eslint/no-deprecated': 'error',
     },
   },
 
@@ -51,10 +52,9 @@ export default tseslint.config(
       },
     },
     rules: {
-      // Allow any in test files for mocking
-      '@typescript-eslint/no-explicit-any': 'off',
       // Allow unused expressions in tests (for expect statements)
       '@typescript-eslint/no-unused-expressions': 'off',
+      '@typescript-eslint/no-deprecated': 'error',
     },
   },
 
@@ -68,8 +68,9 @@ export default tseslint.config(
     },
     rules: {
       // Relax rules for example files
-      '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
+      // Disable typed rule requiring parserServices in non-typed context
+      '@typescript-eslint/no-deprecated': 'off',
     },
   },
 
@@ -83,8 +84,8 @@ export default tseslint.config(
     },
     rules: {
       // Relax rules for config files
-      '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-deprecated': 'off',
     },
   },
 
@@ -99,6 +100,7 @@ export default tseslint.config(
     rules: {
       // Disable TypeScript-specific rules for JS files
       '@typescript-eslint/no-var-requires': 'off',
+      '@typescript-eslint/no-deprecated': 'off',
     },
   },
 

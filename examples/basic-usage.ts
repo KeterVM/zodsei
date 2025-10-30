@@ -1,8 +1,9 @@
 import { createClient, z, retryMiddleware, cacheMiddleware, defineContract } from '../src';
+import axios from 'axios';
 
 // Define data schemas
 const UserSchema = z.object({
-  id: z.uuidv4(),
+  id: z.uuid(),
   name: z.string().min(1, 'Name is required'),
   email: z.email(),
   createdAt: z.iso.datetime(),
@@ -51,7 +52,7 @@ const apiContract = defineContract({
     path: '/users/:id',
     method: 'get' as const,
     request: z.object({
-      id: z.uuidv4(),
+      id: z.uuid(),
     }),
     response: UserSchema,
   },
@@ -67,7 +68,7 @@ const apiContract = defineContract({
     path: '/users/:id',
     method: 'put' as const,
     request: z.object({
-      id: z.uuidv4(),
+      id: z.uuid(),
       name: z.string().min(1).optional(),
       email: z.email().optional(),
     }),
@@ -78,7 +79,7 @@ const apiContract = defineContract({
     path: '/users/:id',
     method: 'delete' as const,
     request: z.object({
-      id: z.uuidv4(),
+      id: z.uuid(),
     }),
     response: z.object({
       success: z.boolean(),
@@ -88,14 +89,15 @@ const apiContract = defineContract({
 });
 
 // Create client
+const axiosInstance = axios.create({
+  baseURL: 'https://api.example.com',
+  timeout: 10000,
+});
+
 const client = createClient(apiContract, {
-  baseUrl: 'https://api.example.com',
+  axios: axiosInstance,
   validateRequest: true,
   validateResponse: true,
-  headers: {
-    Authorization: 'Bearer your-token-here',
-  },
-  timeout: 10000,
   middleware: [
     // Retry middleware
     retryMiddleware({

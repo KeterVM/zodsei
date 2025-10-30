@@ -1,54 +1,43 @@
-import type { HttpAdapter } from './index';
 import type { RequestContext, ResponseContext } from '../types';
 import { HttpError, NetworkError, TimeoutError } from '../errors';
-import type { CreateAxiosDefaults } from 'axios';
-
-/**
- * Axios adapter configuration
- */
-export type AxiosAdapterConfig = CreateAxiosDefaults;
+import type { AxiosInstance, AxiosRequestConfig } from 'axios';
+import { isAxiosError } from 'axios';
 
 /**
  * Axios HTTP adapter
  */
-export class AxiosAdapter implements HttpAdapter {
+export class AxiosAdapter {
   readonly name = 'axios';
-  private config: AxiosAdapterConfig;
-  private axios: any;
+  private axios: AxiosInstance;
 
-  constructor(config: AxiosAdapterConfig = {}) {
-    this.config = {
-      timeout: 30000,
-      validateStatus: () => true, // We handle status validation ourselves
-      ...config,
-    };
-  }
-
-  private async getAxios() {
-    if (!this.axios) {
-      try {
-        const axiosModule = await import('axios');
-        this.axios = axiosModule.default || axiosModule;
-      } catch (_error) {
-        throw new Error('axios is not installed. Please install it with: npm install axios');
-      }
-    }
-    return this.axios;
+  constructor(axiosInstance: AxiosInstance) {
+    this.axios = axiosInstance;
   }
 
   // Interceptors are not supported. Use middleware in the client instead.
 
   async request(context: RequestContext): Promise<ResponseContext> {
     try {
-      const axios = await this.getAxios();
       const axiosConfig = this.createAxiosConfig(context);
 
-      const response = await axios.request(axiosConfig);
+      const response = await this.axios.request(axiosConfig);
+
+      const headers: Record<string, string> = (() => {
+        const rh = (response.headers ?? {}) as Record<string, unknown>;
+        if (!rh) return {};
+        try {
+          return Object.fromEntries(
+            Object.entries(rh).map(([k, v]) => [k, typeof v === 'string' ? v : String(v)])
+          );
+        } catch {
+          return {};
+        }
+      })();
 
       const responseContext: ResponseContext = {
         status: response.status,
         statusText: response.statusText,
-        headers: response.headers || {},
+        headers,
         data: response.data,
       };
 
@@ -63,15 +52,16 @@ export class AxiosAdapter implements HttpAdapter {
       }
 
       return responseContext;
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (error instanceof HttpError) {
         throw error;
       }
 
       // Handle Axios errors
-      if (error.isAxiosError) {
+      if (isAxiosError(error)) {
         if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-          throw new TimeoutError(this.config.timeout || 0);
+          const to = typeof error.config?.timeout === 'number' ? error.config.timeout : 0;
+          throw new TimeoutError(to || 0);
         }
 
         if (error.response) {
@@ -84,30 +74,30 @@ export class AxiosAdapter implements HttpAdapter {
           );
         } else if (error.request) {
           // Request was made but no response received
-          throw new NetworkError(`Network request failed: ${error.message}`, error);
+          const message = typeof error.message === 'string' ? error.message : 'Request failed';
+          throw new NetworkError(`Network request failed: ${message}`, error as Error);
         }
+
+        const message = typeof error.message === 'string' ? error.message : 'Axios error';
+        throw new NetworkError(`Axios request failed: ${message}`, error as Error);
       }
 
-      throw new NetworkError(`Axios request failed: ${error.message}`, error);
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      throw new NetworkError(
+        `Axios request failed: ${message}`,
+        (error as Error) ?? new Error(String(error))
+      );
     }
   }
 
-  private createAxiosConfig(context: RequestContext): any {
-    const config: any = {
+  private createAxiosConfig(context: RequestContext): AxiosRequestConfig {
+    const config: AxiosRequestConfig = {
       url: context.url,
-      method: context.method.toLowerCase(),
+      method: context.method.toLowerCase() as AxiosRequestConfig['method'],
       headers: {
         'Content-Type': 'application/json',
         ...context.headers,
       },
-      timeout: this.config.timeout,
-      maxRedirects: this.config.maxRedirects,
-      validateStatus: this.config.validateStatus,
-      maxContentLength: this.config.maxContentLength,
-      maxBodyLength: this.config.maxBodyLength,
-      withCredentials: this.config.withCredentials,
-      auth: this.config.auth,
-      proxy: this.config.proxy,
     };
 
     // Add request body
@@ -117,7 +107,7 @@ export class AxiosAdapter implements HttpAdapter {
 
     // Add query parameters
     if (context.query && Object.keys(context.query).length > 0) {
-      config.params = context.query;
+      config.params = context.query as Record<string, unknown>;
     }
 
     return config;

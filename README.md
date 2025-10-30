@@ -51,18 +51,18 @@ Use Zodsei when:
 - 📋 **Contract-first**: Define your API contract once, get type safety everywhere
 - ✅ **Runtime validation**: Request and response validation using Zod schemas
 - 🔌 **Middleware support**: Built-in retry, caching, and custom middleware
-- 🌐 **Multiple HTTP clients**: Support for fetch, axios, and ky through adapters
-- 🚀 **Minimal dependencies**: Only requires Zod, HTTP clients are optional
+- 🌐 **Axios-based client**: Bring-your-own Axios instance for requests
+- 🚀 **Minimal dependencies**: Zod + Axios
 - 📦 **Modern**: ESM/CJS dual package, works in Node.js and browsers
 
 ## Installation
 
 ```bash
-npm install zodsei zod
+npm install zodsei zod axios
 # or
-pnpm add zodsei zod
+pnpm add zodsei zod axios
 # or
-yarn add zodsei zod
+yarn add zodsei zod axios
 ```
 
 ## Quick Start
@@ -105,20 +105,14 @@ const apiContract = defineContract({
 
 ```typescript
 import { createClient } from 'zodsei';
+import axios from 'axios';
+
+const axiosInstance = axios.create({ baseURL: 'https://api.example.com', timeout: 10000 });
 
 const client = createClient(apiContract, {
-  baseUrl: 'https://api.example.com',
+  axios: axiosInstance,
   validateRequest: true,
   validateResponse: true,
-  // Type-safe adapter configuration - TypeScript infers the correct type based on adapter
-  adapter: 'fetch', // 👈 This determines adapterConfig type (FetchAdapterConfig)
-  adapterConfig: {
-    timeout: 10000,
-    credentials: 'include', // ✅ Valid for fetch
-    mode: 'cors',           // ✅ Valid for fetch
-    cache: 'no-cache'       // ✅ Valid for fetch
-    // auth: { username: 'user' } // ❌ TypeScript error: not valid for fetch
-  }
 });
 ```
 
@@ -250,12 +244,9 @@ const user = await client.users.getById({ id: '123' });
 
 ```typescript
 interface ClientConfig {
-  baseUrl: string;                    // Base URL for all requests
+  axios: AxiosInstance;               // Your Axios instance (required)
   validateRequest?: boolean;          // Enable request validation (default: true)
   validateResponse?: boolean;         // Enable response validation (default: true)
-  headers?: Record<string, string>;   // Default headers
-  timeout?: number;                   // Request timeout in ms (default: 30000)
-  retries?: number;                   // Number of retries (default: 0)
   middleware?: Middleware[];          // Custom middleware
 }
 ```
@@ -315,33 +306,9 @@ const client = createClient(contract, {
 });
 ```
 
-### HTTP Adapters
+### HTTP Client
 
-Zodsei supports multiple HTTP clients through a pluggable adapter system. Choose the adapter that best fits your needs:
-
-#### Quick Setup
-
-```typescript
-// Fetch (default) - Zero dependencies
-const client = createClient(contract, {
-  baseUrl: 'https://api.example.com'
-  // adapter: 'fetch' is implicit
-});
-
-// Axios - Full-featured HTTP client
-const client = createClient(contract, {
-  baseUrl: 'https://api.example.com',
-  adapter: 'axios'
-});
-
-// Ky - Modern with built-in retry
-const client = createClient(contract, {
-  baseUrl: 'https://api.example.com',
-  adapter: 'ky'
-});
-```
-
-For advanced configuration and feature comparison, see the Advanced section below. For request/response lifecycle, use client-level middleware.
+Zodsei uses Axios under the hood. You must provide an `AxiosInstance` when creating the client. Use middleware for cross-cutting concerns (auth, logging, retries, caching).
 
 ### Error Handling
 
@@ -372,32 +339,10 @@ try {
 
 ## Advanced
 
-### Adapters: Advanced Configuration
+### Notes
 
-```typescript
-// String-based with config
-const client = createClient(contract, {
-  baseUrl: 'https://api.example.com',
-  adapter: 'axios',
-  adapterConfig: {
-    timeout: 15000,
-    withCredentials: true
-  }
-});
-```
-
-### Feature Comparison
-
-| Feature | Fetch | Axios | Ky |
-|---------|-------|-------|----|
-| **Bundle Size** | 0KB | ~13KB | ~4KB |
-| **Dependencies** | None | Required | Required |
-| **Built-in** | ✅ Native | ❌ Install required | ❌ Install required |
-| **Platforms** | Node.js, Browser | Node.js, Browser | Node.js, Browser |
-| **Interceptors** | ❌ | ❌ | ❌ |
-| **Auto Retry** | ❌ | ❌ | ✅ Built-in |
-| **Advanced Features** | Basic | Proxy, Auth, etc. | Hooks, Timeout |
-| **Best For** | Simple APIs | Complex APIs | Modern APIs |
+- Provide your own Axios instance to integrate global config, interceptors, and shared headers.
+- For retries, caching, auth headers, prefer Zodsei middleware to keep concerns consistent across transports.
 
 ### Middleware (Recommended)
 

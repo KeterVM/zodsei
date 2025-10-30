@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { createClient, defineContract } from '../src';
+import axios from 'axios';
 
 // 定义简单的测试合约
 const contract = defineContract({
@@ -16,7 +17,7 @@ const contract = defineContract({
 
 // 创建客户端（现在直接包含所有 schema 功能）
 const client = createClient(contract, {
-  baseUrl: 'https://api.example.com',
+  axios: axios.create({ baseURL: 'https://api.example.com' }),
 });
 
 // 测试功能

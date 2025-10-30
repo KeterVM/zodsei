@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { createClient, defineContract } from '../src';
+import axios from 'axios';
 
 // Define schemas
 const LoginRequestSchema = z.object({
@@ -10,14 +11,14 @@ const LoginRequestSchema = z.object({
 const LoginResponseSchema = z.object({
   token: z.string(),
   user: z.object({
-    id: z.uuidv4(),
+    id: z.uuid(),
     email: z.email(),
     name: z.string(),
   }),
 });
 
 const UserSchema = z.object({
-  id: z.uuidv4(),
+  id: z.uuid(),
   email: z.email(),
   name: z.string(),
   createdAt: z.iso.datetime(),
@@ -30,7 +31,7 @@ const CreateUserRequestSchema = z.object({
 });
 
 const UserIdRequestSchema = z.object({
-  id: z.uuidv4(),
+  id: z.uuid(),
 });
 
 // Define nested contract structure
@@ -75,7 +76,7 @@ const apiContract = defineContract({
       path: '/users/:id',
       method: 'put' as const,
       request: z.object({
-        id: z.uuidv4(),
+        id: z.uuid(),
         name: z.string().min(1, 'Name is required'),
         email: z.email(),
       }),
@@ -100,7 +101,7 @@ const apiContract = defineContract({
 
 // Create client
 const client = createClient(apiContract, {
-  baseUrl: 'https://api.example.com',
+  axios: axios.create({ baseURL: 'https://api.example.com' }),
 });
 
 async function demonstrateNestedAccess() {

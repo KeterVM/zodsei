@@ -51,18 +51,18 @@ Zodsei 提供：
 - 📋 **契约优先**：一次定义APIContract，处处享受类型安全
 - ✅ **运行时校验**：使用 Zod 对请求与响应进行校验
 - 🔌 **中间件支持**：内置重试、缓存与自定义中间件
-- 🌐 **多种 HTTP 客户端**：通过适配器支持 fetch、axios、ky
-- 🚀 **最小依赖**：只需 Zod，HTTP 客户端为可选
+- 🌐 **Axios 统一实现**：通过你传入的 Axios 实例发起请求
+- 🚀 **最小依赖**：Zod + Axios
 - 📦 **现代包**：同时提供 ESM/CJS，支持 Node.js 与浏览器
 
 ## 安装
 
 ```bash
-npm install zodsei zod
+npm install zodsei zod axios
 # or
-pnpm add zodsei zod
+pnpm add zodsei zod axios
 # or
-yarn add zodsei zod
+yarn add zodsei zod axios
 ```
 
 ## 快速开始
@@ -105,20 +105,17 @@ const apiContract = defineContract({
 
 ```typescript
 import { createClient } from 'zodsei';
+import axios from 'axios';
+
+const axiosInstance = axios.create({
+  baseURL: 'https://api.example.com',
+  timeout: 10000,
+});
 
 const client = createClient(apiContract, {
-  baseUrl: 'https://api.example.com',
+  axios: axiosInstance,
   validateRequest: true,
   validateResponse: true,
-  // Type-safe adapter configuration - TypeScript infers the correct type based on adapter
-  adapter: 'fetch', // 👈 This determines adapterConfig type (FetchAdapterConfig)
-  adapterConfig: {
-    timeout: 10000,
-    credentials: 'include', // ✅ Valid for fetch
-    mode: 'cors',           // ✅ Valid for fetch
-    cache: 'no-cache'       // ✅ Valid for fetch
-    // auth: { username: 'user' } // ❌ TypeScript error: not valid for fetch
-  }
 });
 ```
 
@@ -250,13 +247,10 @@ const user = await client.users.getById({ id: '123' });
 
 ```typescript
 interface ClientConfig {
-  baseUrl: string;                    // Base URL for all requests
-  validateRequest?: boolean;          // Enable request validation (default: true)
-  validateResponse?: boolean;         // Enable response validation (default: true)
-  headers?: Record<string, string>;   // Default headers
-  timeout?: number;                   // Request timeout in ms (default: 30000)
-  retries?: number;                   // Number of retries (default: 0)
-  middleware?: Middleware[];          // Custom middleware
+  axios: AxiosInstance;               // 你提供的 Axios 实例（必填）
+  validateRequest?: boolean;          // 启用请求校验（默认：true）
+  validateResponse?: boolean;         // 启用响应校验（默认：true）
+  middleware?: Middleware[];          // 自定义中间件
 }
 ```
 
@@ -315,33 +309,9 @@ const client = createClient(contract, {
 });
 ```
 
-### HTTP 适配器
+### HTTP 客户端
 
-Zodsei 通过可插拔的适配器机制支持多种 HTTP 客户端。选择最适合你的适配器：
-
-#### 快速设置
-
-```typescript
-// Fetch (default) - Zero dependencies
-const client = createClient(contract, {
-  baseUrl: 'https://api.example.com'
-  // adapter: 'fetch' is implicit
-});
-
-// Axios - Full-featured HTTP client
-const client = createClient(contract, {
-  baseUrl: 'https://api.example.com',
-  adapter: 'axios'
-});
-
-// Ky - Modern with built-in retry
-const client = createClient(contract, {
-  baseUrl: 'https://api.example.com',
-  adapter: 'ky'
-});
-```
-
-高级配置与特性对比见下方「高级」章节。有关请求/响应生命周期，建议使用客户端级中间件。
+Zodsei 统一使用 Axios。创建客户端时你需要提供一个 `AxiosInstance`。横切关注点（认证、日志、重试、缓存等）推荐通过 Zodsei 中间件实现。
 
 ### 错误处理
 
@@ -372,32 +342,10 @@ try {
 
 ## 高级
 
-### 适配器：高级配置
+### 说明
 
-```typescript
-// String-based with config
-const client = createClient(contract, {
-  baseUrl: 'https://api.example.com',
-  adapter: 'axios',
-  adapterConfig: {
-    timeout: 15000,
-    withCredentials: true
-  }
-});
-```
-
-### 特性对比
-
-| 特性 | Fetch | Axios | Ky |
-|------|-------|-------|----|
-| **包体积** | 0KB | ~13KB | ~4KB |
-| **依赖** | 无 | 需要安装 | 需要安装 |
-| **内置** | ✅ 原生 | ❌ 需安装 | ❌ 需安装 |
-| **平台** | Node.js, Browser | Node.js, Browser | Node.js, Browser |
-| **拦截器** | ❌ | ❌ | ❌ |
-| **自动重试** | ❌ | ❌ | ✅ 内置 |
-| **高级特性** | 基础 | 代理、认证等 | Hooks、超时 |
-| **最适合** | 简单 API | 复杂 API | 现代 API |
+- 使用你自己的 Axios 实例以复用全局配置、拦截器与共享请求头。
+- 重试、缓存、认证头等推荐用 Zodsei 中间件实现，统一策略、更易测试。
 
 ### 中间件（推荐）
 

@@ -1,20 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
 import { createClient, ValidationError, HttpError } from '../src';
+import type { AxiosInstance } from 'axios';
 
-// Mock fetch
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+// Mock axios instance helper
+function createAxiosMock(baseURL = 'https://api.example.com') {
+  return {
+    request: vi.fn(),
+    defaults: { baseURL },
+  } as unknown as AxiosInstance & { request: ReturnType<typeof vi.fn> };
+}
 
 describe('ZodseiClient', () => {
+  let axiosMock: ReturnType<typeof createAxiosMock>;
   beforeEach(() => {
-    mockFetch.mockClear();
+    axiosMock = createAxiosMock();
   });
 
   const UserSchema = z.object({
-    id: z.string().uuid(),
+    id: z.uuid(),
     name: z.string(),
-    email: z.string().email()
+    email: z.email(),
   });
 
   const apiContract = {
@@ -22,19 +28,19 @@ describe('ZodseiClient', () => {
       path: '/users/:id',
       method: 'get' as const,
       request: z.object({
-        id: z.string().uuid()
+        id: z.uuid(),
       }),
-      response: UserSchema
+      response: UserSchema,
     },
-    
+
     createUser: {
       path: '/users',
       method: 'post' as const,
       request: z.object({
         name: z.string().min(1),
-        email: z.string().email()
+        email: z.email(),
       }),
-      response: UserSchema
+      response: UserSchema,
     },
 
     getUsers: {
@@ -42,18 +48,18 @@ describe('ZodseiClient', () => {
       method: 'get' as const,
       request: z.object({
         page: z.number().optional(),
-        limit: z.number().optional()
+        limit: z.number().optional(),
       }),
       response: z.object({
         users: z.array(UserSchema),
-        total: z.number()
-      })
-    }
+        total: z.number(),
+      }),
+    },
   } as const;
 
   it('should create client successfully', () => {
     const client = createClient(apiContract, {
-      baseUrl: 'https://api.example.com'
+      axios: axiosMock,
     });
 
     expect(client).toBeDefined();
@@ -67,33 +73,30 @@ describe('ZodseiClient', () => {
       const mockUser = {
         id: '123e4567-e89b-12d3-a456-426614174000',
         name: 'John Doe',
-        email: 'john@example.com'
+        email: 'john@example.com',
       };
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      axiosMock.request.mockResolvedValueOnce({
         status: 200,
         statusText: 'OK',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => mockUser
+        headers: {},
+        data: mockUser,
       });
 
       const client = createClient(apiContract, {
-        baseUrl: 'https://api.example.com'
+        axios: axiosMock,
       });
 
       const result = await client.getUser({
-        id: '123e4567-e89b-12d3-a456-426614174000'
+        id: '123e4567-e89b-12d3-a456-426614174000',
       });
 
       expect(result).toEqual(mockUser);
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.example.com/users/123e4567-e89b-12d3-a456-426614174000',
+      expect(axiosMock.request).toHaveBeenCalledWith(
         expect.objectContaining({
-          method: 'GET',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json'
-          })
+          url: 'https://api.example.com/users/123e4567-e89b-12d3-a456-426614174000',
+          method: 'get',
+          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
         })
       );
     });
@@ -105,47 +108,46 @@ describe('ZodseiClient', () => {
           path: '/users/:userId/posts/:postId',
           method: 'get' as const,
           request: z.object({
-            userId: z.string().uuid(),
-            postId: z.string().uuid()
+            userId: z.uuid(),
+            postId: z.uuid(),
           }),
           response: z.object({
-            id: z.string().uuid(),
+            id: z.uuid(),
             title: z.string(),
             content: z.string(),
-            userId: z.string().uuid()
-          })
-        }
+            userId: z.uuid(),
+          }),
+        },
       } as const;
 
       const mockPost = {
         id: '123e4567-e89b-12d3-a456-426614174000',
         title: 'Test Post',
         content: 'Test content',
-        userId: '123e4567-e89b-12d3-a456-426614174001'
+        userId: '123e4567-e89b-12d3-a456-426614174001',
       };
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      axiosMock.request.mockResolvedValueOnce({
         status: 200,
         statusText: 'OK',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => mockPost
+        headers: {},
+        data: mockPost,
       });
 
       const client = createClient(multiParamContract, {
-        baseUrl: 'https://api.example.com'
+        axios: axiosMock,
       });
 
       const result = await client.getUserPost({
         userId: '123e4567-e89b-12d3-a456-426614174001',
-        postId: '123e4567-e89b-12d3-a456-426614174000'
+        postId: '123e4567-e89b-12d3-a456-426614174000',
       });
 
       expect(result).toEqual(mockPost);
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.example.com/users/123e4567-e89b-12d3-a456-426614174001/posts/123e4567-e89b-12d3-a456-426614174000',
+      expect(axiosMock.request).toHaveBeenCalledWith(
         expect.objectContaining({
-          method: 'GET'
+          url: 'https://api.example.com/users/123e4567-e89b-12d3-a456-426614174001/posts/123e4567-e89b-12d3-a456-426614174000',
+          method: 'get',
         })
       );
     });
@@ -154,32 +156,31 @@ describe('ZodseiClient', () => {
       const mockUser = {
         id: '123e4567-e89b-12d3-a456-426614174000',
         name: 'John Doe',
-        email: 'john@example.com'
+        email: 'john@example.com',
       };
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      axiosMock.request.mockResolvedValueOnce({
         status: 200,
         statusText: 'OK',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => mockUser
+        headers: {},
+        data: mockUser,
       });
 
       const client = createClient(apiContract, {
-        baseUrl: 'https://api.example.com',
+        axios: axiosMock,
         validateRequest: false, // Disable validation for this test
-        validateResponse: false // Also disable response validation
+        validateResponse: false, // Also disable response validation
       });
 
       const result = await client.getUser({
-        id: 'user with spaces'
-      } as any);
+        id: 'user with spaces',
+      });
 
       expect(result).toEqual(mockUser);
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.example.com/users/user%20with%20spaces',
+      expect(axiosMock.request).toHaveBeenCalledWith(
         expect.objectContaining({
-          method: 'GET'
+          url: 'https://api.example.com/users/user%20with%20spaces',
+          method: 'get',
         })
       );
     });
@@ -191,50 +192,51 @@ describe('ZodseiClient', () => {
           path: '/users/:userId/posts',
           method: 'get' as const,
           request: z.object({
-            userId: z.string().uuid(),
+            userId: z.uuid(),
             page: z.number().optional(),
             limit: z.number().optional(),
-            search: z.string().optional()
+            search: z.string().optional(),
           }),
           response: z.object({
-            posts: z.array(z.object({
-              id: z.string(),
-              title: z.string()
-            })),
-            total: z.number()
-          })
-        }
+            posts: z.array(
+              z.object({
+                id: z.string(),
+                title: z.string(),
+              })
+            ),
+            total: z.number(),
+          }),
+        },
       } as const;
 
       const mockResponse = {
         posts: [{ id: 'post-1', title: 'Test Post' }],
-        total: 1
+        total: 1,
       };
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      axiosMock.request.mockResolvedValueOnce({
         status: 200,
         statusText: 'OK',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => mockResponse
+        headers: {},
+        data: mockResponse,
       });
 
       const client = createClient(mixedParamsContract, {
-        baseUrl: 'https://api.example.com'
+        axios: axiosMock,
       });
 
       const result = await client.searchUserPosts({
         userId: '123e4567-e89b-12d3-a456-426614174000',
         page: 1,
         limit: 10,
-        search: 'test'
+        search: 'test',
       });
 
       expect(result).toEqual(mockResponse);
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.example.com/users/123e4567-e89b-12d3-a456-426614174000/posts?page=1&limit=10&search=test',
+      expect(axiosMock.request).toHaveBeenCalledWith(
         expect.objectContaining({
-          method: 'GET'
+          url: 'https://api.example.com/users/123e4567-e89b-12d3-a456-426614174000/posts?page=1&limit=10&search=test',
+          method: 'get',
         })
       );
     });
@@ -243,37 +245,33 @@ describe('ZodseiClient', () => {
   it('should make POST request with body', async () => {
     const requestData = {
       name: 'Jane Doe',
-      email: 'jane@example.com'
+      email: 'jane@example.com',
     };
 
     const mockUser = {
       id: '123e4567-e89b-12d3-a456-426614174000',
-      ...requestData
+      ...requestData,
     };
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
+    axiosMock.request.mockResolvedValueOnce({
       status: 201,
       statusText: 'Created',
-      headers: new Headers({ 'content-type': 'application/json' }),
-      json: async () => mockUser
+      headers: {},
+      data: mockUser,
     });
 
     const client = createClient(apiContract, {
-      baseUrl: 'https://api.example.com'
+      axios: axiosMock,
     });
 
     const result = await client.createUser(requestData);
 
     expect(result).toEqual(mockUser);
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://api.example.com/users',
+    expect(axiosMock.request).toHaveBeenCalledWith(
       expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({
-          'Content-Type': 'application/json'
-        }),
-        body: JSON.stringify(requestData)
+        url: 'https://api.example.com/users',
+        method: 'post',
+        data: requestData,
       })
     );
   });
@@ -281,109 +279,111 @@ describe('ZodseiClient', () => {
   it('should make GET request with query params', async () => {
     const mockResponse = {
       users: [],
-      total: 0
+      total: 0,
     };
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
+    axiosMock.request.mockResolvedValueOnce({
       status: 200,
       statusText: 'OK',
-      headers: new Headers({ 'content-type': 'application/json' }),
-      json: async () => mockResponse
+      headers: {},
+      data: mockResponse,
     });
 
     const client = createClient(apiContract, {
-      baseUrl: 'https://api.example.com'
+      axios: axiosMock,
     });
 
     const result = await client.getUsers({
       page: 1,
-      limit: 10
+      limit: 10,
     });
 
     expect(result).toEqual(mockResponse);
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://api.example.com/users?page=1&limit=10',
+    expect(axiosMock.request).toHaveBeenCalledWith(
       expect.objectContaining({
-        method: 'GET'
+        url: 'https://api.example.com/users?page=1&limit=10',
+        method: 'get',
       })
     );
   });
 
   it('should validate request data', async () => {
     const client = createClient(apiContract, {
-      baseUrl: 'https://api.example.com',
-      validateRequest: true
+      axios: axiosMock,
+      validateRequest: true,
     });
 
-    await expect(client.getUser({
-      id: 'invalid-uuid'
-    })).rejects.toThrow(ValidationError);
+    await expect(
+      client.getUser({
+        id: 'invalid-uuid',
+      })
+    ).rejects.toThrow(ValidationError);
   });
 
   it('should validate response data', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
+    axiosMock.request.mockResolvedValueOnce({
       status: 200,
       statusText: 'OK',
-      headers: new Headers({ 'content-type': 'application/json' }),
-      json: async () => ({ invalid: 'response' })
+      headers: {},
+      data: { invalid: 'response' },
     });
 
     const client = createClient(apiContract, {
-      baseUrl: 'https://api.example.com',
-      validateResponse: true
+      axios: axiosMock,
+      validateResponse: true,
     });
 
-    await expect(client.getUser({
-      id: '123e4567-e89b-12d3-a456-426614174000'
-    })).rejects.toThrow(ValidationError);
+    await expect(
+      client.getUser({
+        id: '123e4567-e89b-12d3-a456-426614174000',
+      })
+    ).rejects.toThrow(ValidationError);
   });
 
   it('should handle HTTP errors', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
+    axiosMock.request.mockResolvedValueOnce({
       status: 404,
       statusText: 'Not Found',
-      headers: new Headers({ 'content-type': 'application/json' }),
-      json: async () => ({ error: 'User not found' })
+      headers: {},
+      data: { error: 'User not found' },
     });
 
     const client = createClient(apiContract, {
-      baseUrl: 'https://api.example.com',
-      validateResponse: false // Disable response validation to test HTTP error
+      axios: axiosMock,
+      validateResponse: false, // Disable response validation to test HTTP error
     });
 
-    await expect(client.getUser({
-      id: '123e4567-e89b-12d3-a456-426614174000'
-    })).rejects.toThrow(HttpError);
+    await expect(
+      client.getUser({
+        id: '123e4567-e89b-12d3-a456-426614174000',
+      })
+    ).rejects.toThrow(HttpError);
   });
 
   it('should disable validation when configured', async () => {
     const mockUser = {
       id: '123e4567-e89b-12d3-a456-426614174000',
       name: 'John Doe',
-      email: 'john@example.com'
+      email: 'john@example.com',
     };
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
+    axiosMock.request.mockResolvedValueOnce({
       status: 200,
       statusText: 'OK',
-      headers: new Headers({ 'content-type': 'application/json' }),
-      json: async () => mockUser
+      headers: {},
+      data: mockUser,
     });
 
     const client = createClient(apiContract, {
-      baseUrl: 'https://api.example.com',
+      axios: axiosMock,
       validateRequest: false,
-      validateResponse: false
+      validateResponse: false,
     });
 
     // This should not throw an error, even if UUID is invalid
     const result = await client.getUser({
-      id: 'invalid-uuid'
-    } as any);
+      id: 'invalid-uuid',
+    } as unknown as typeof client.getUser.infer.request);
 
     expect(result).toEqual(mockUser);
   });

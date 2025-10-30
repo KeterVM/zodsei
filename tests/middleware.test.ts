@@ -2,14 +2,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
 import { createClient } from '../src';
 import { retryMiddleware, cacheMiddleware } from '../src';
+import type { AxiosInstance } from 'axios';
 
-// Mock fetch
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+function createAxiosMock(baseURL = 'https://api.example.com') {
+  return {
+    request: vi.fn(),
+    defaults: { baseURL },
+  } as unknown as AxiosInstance & { request: ReturnType<typeof vi.fn> };
+}
 
 describe('Middleware', () => {
+  let axiosMock: ReturnType<typeof createAxiosMock>;
   beforeEach(() => {
-    mockFetch.mockClear();
+    axiosMock = createAxiosMock();
   });
 
   const apiContract = {
@@ -17,12 +22,12 @@ describe('Middleware', () => {
       path: '/users/:id',
       method: 'get' as const,
       request: z.object({
-        id: z.string().uuid()
+        id: z.uuid()
       }),
       response: z.object({
-        id: z.string().uuid(),
+        id: z.uuid(),
         name: z.string(),
-        email: z.string().email()
+        email: z.email()
       })
     }
   } as const;
@@ -36,24 +41,22 @@ describe('Middleware', () => {
       };
 
       // First call fails, second succeeds
-      mockFetch
+      axiosMock.request
         .mockResolvedValueOnce({
-          ok: false,
           status: 500,
           statusText: 'Internal Server Error',
-          headers: new Headers({ 'content-type': 'application/json' }),
-          json: async () => ({ error: 'Server error' })
+          headers: {},
+          data: { error: 'Server error' },
         })
         .mockResolvedValueOnce({
-          ok: true,
           status: 200,
           statusText: 'OK',
-          headers: new Headers({ 'content-type': 'application/json' }),
-          json: async () => mockUser
+          headers: {},
+          data: mockUser,
         });
 
       const client = createClient(apiContract, {
-        baseUrl: 'https://api.example.com',
+        axios: axiosMock,
         validateResponse: false, // Disable validation for this test
         middleware: [
           retryMiddleware({
@@ -68,20 +71,19 @@ describe('Middleware', () => {
       });
 
       expect(result).toEqual(mockUser);
-      expect(mockFetch).toHaveBeenCalledTimes(2);
+      expect(axiosMock.request).toHaveBeenCalledTimes(2);
     });
 
     it('should not retry on client errors', async () => {
-      mockFetch.mockResolvedValueOnce({
-        ok: false,
+      axiosMock.request.mockResolvedValueOnce({
         status: 404,
         statusText: 'Not Found',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => ({ error: 'Not found' })
+        headers: {},
+        data: { error: 'Not found' }
       });
 
       const client = createClient(apiContract, {
-        baseUrl: 'https://api.example.com',
+        axios: axiosMock,
         validateResponse: false,
         middleware: [
           retryMiddleware({
@@ -96,7 +98,7 @@ describe('Middleware', () => {
       })).rejects.toThrow();
 
       // Should only be called once (no retry for 404)
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(axiosMock.request).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -108,16 +110,15 @@ describe('Middleware', () => {
         email: 'john@example.com'
       };
 
-      mockFetch.mockResolvedValue({
-        ok: true,
+      axiosMock.request.mockResolvedValue({
         status: 200,
         statusText: 'OK',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => mockUser
+        headers: {},
+        data: mockUser,
       });
 
       const client = createClient(apiContract, {
-        baseUrl: 'https://api.example.com',
+        axios: axiosMock,
         middleware: [
           cacheMiddleware({
             ttl: 1000 // 1 second cache
@@ -138,7 +139,7 @@ describe('Middleware', () => {
       expect(result1).toEqual(mockUser);
       expect(result2).toEqual(mockUser);
       // Should only make one HTTP request due to caching
-      expect(mockFetch).toHaveBeenCalledTimes(1);
+      expect(axiosMock.request).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -150,16 +151,15 @@ describe('Middleware', () => {
         email: 'john@example.com'
       };
 
-      mockFetch.mockResolvedValue({
-        ok: true,
+      axiosMock.request.mockResolvedValue({
         status: 200,
         statusText: 'OK',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => mockUser
+        headers: {},
+        data: mockUser,
       });
 
       const client = createClient(apiContract, {
-        baseUrl: 'https://api.example.com',
+        axios: axiosMock,
         middleware: [
           cacheMiddleware({ ttl: 1000 }),
           retryMiddleware({ retries: 1, delay: 10 })
@@ -171,7 +171,7 @@ describe('Middleware', () => {
       });
 
       expect(result).toEqual(mockUser);
-      expect(mockFetch).toHaveBeenCalledTimes(1);
-    });
+      expect(axiosMock.request).toHaveBeenCalledTimes(1);
+});
   });
 });

@@ -1,8 +1,5 @@
 import { z } from 'zod';
-import type { AdapterType } from './adapters';
-import type { FetchAdapterConfig } from './adapters/fetch';
-import type { AxiosAdapterConfig } from './adapters/axios';
-import type { KyAdapterConfig } from './adapters/ky';
+import type { AxiosInstance } from 'axios';
 import type { SchemaExtractor } from './schema';
 
 // HTTP method types
@@ -12,8 +9,8 @@ export type HttpMethod = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 
 export interface EndpointDefinition {
   path: string;
   method: HttpMethod;
-  request?: z.ZodSchema;
-  response?: z.ZodSchema;
+  request?: z.ZodType;
+  response?: z.ZodType;
 }
 
 // Contract type
@@ -48,45 +45,23 @@ export type ApiClient<T extends Contract> = {
 
 // Base client configuration
 interface BaseClientConfig {
-  baseUrl: string;
   validateRequest?: boolean;
   validateResponse?: boolean;
-  headers?: Record<string, string>;
-  timeout?: number;
-  retries?: number;
   middleware?: Middleware[];
 }
 
 // Type-safe client configuration with conditional adapterConfig
-export type ClientConfig =
-  | (BaseClientConfig & {
-      adapter?: 'fetch';
-      adapterConfig?: FetchAdapterConfig;
-    })
-  | (BaseClientConfig & {
-      adapter: 'axios';
-      adapterConfig?: AxiosAdapterConfig;
-    })
-  | (BaseClientConfig & {
-      adapter: 'ky';
-      adapterConfig?: KyAdapterConfig;
-    })
-  | (BaseClientConfig & {
-      adapter?: undefined;
-      adapterConfig?: FetchAdapterConfig; // Default to fetch
-    });
+export type ClientConfig = BaseClientConfig & {
+  // User must provide an Axios instance
+  axios: AxiosInstance;
+};
 
 // Internal configuration type for client implementation
 export interface InternalClientConfig {
-  baseUrl: string;
   validateRequest: boolean;
   validateResponse: boolean;
-  headers: Record<string, string>;
-  timeout: number;
-  retries: number;
   middleware: Middleware[];
-  adapter: AdapterType | undefined;
-  adapterConfig: Record<string, any>;
+  axios: AxiosInstance;
 }
 
 // Middleware types
@@ -100,9 +75,9 @@ export interface RequestContext {
   url: string;
   method: HttpMethod;
   headers: Record<string, string>;
-  body?: any;
+  body?: unknown;
   params?: Record<string, string>;
-  query?: Record<string, any>;
+  query?: Record<string, unknown>;
 }
 
 // Response context
@@ -110,7 +85,7 @@ export interface ResponseContext {
   status: number;
   statusText: string;
   headers: Record<string, string>;
-  data: any;
+  data: unknown;
 }
 
 // Path parameter extraction type
@@ -123,7 +98,7 @@ export type ExtractPathParams<T extends string> =
 
 // Request data separation type
 export type SeparateRequestData<T> =
-  T extends Record<string, any>
+  T extends Record<string, unknown>
     ? {
         pathParams: ExtractPathParams<string>;
         queryParams: Omit<T, keyof ExtractPathParams<string>>;
@@ -137,15 +112,15 @@ export type SeparateRequestData<T> =
 
 // Schema inference types
 export type InferRequestType<T extends EndpointDefinition> = 
-  T['request'] extends z.ZodSchema ? z.infer<T['request']> : void;
+  T['request'] extends z.ZodType ? z.infer<T['request']> : void;
 
 export type InferResponseType<T extends EndpointDefinition> = 
-  T['response'] extends z.ZodSchema ? z.infer<T['response']> : unknown;
+  T['response'] extends z.ZodType ? z.infer<T['response']> : unknown;
 
 // Enhanced endpoint method with schema access
 export interface EndpointMethodWithSchema<T extends EndpointDefinition> {
   (
-    ...args: T['request'] extends z.ZodSchema 
+    ...args: T['request'] extends z.ZodType 
       ? [data: InferRequestType<T>] 
       : []
   ): Promise<InferResponseType<T>>;

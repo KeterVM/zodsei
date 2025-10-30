@@ -2,43 +2,23 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
 import { createClient, SchemaExtractor } from '../src';
 import type { InferRequestType, InferResponseType, InferContractTypes } from '../src';
+import type { AxiosInstance } from 'axios';
 
-// Mock fetch for testing
-const mockFetch = vi.fn();
-Object.defineProperty(global, 'fetch', {
-  value: mockFetch,
-  writable: true,
-});
-
-// Mock Headers
-Object.defineProperty(global, 'Headers', {
-  value: class Headers {
-    private headers = new Map();
-    constructor(init?: any) {
-      if (init) {
-        Object.entries(init).forEach(([key, value]) => {
-          this.headers.set(key.toLowerCase(), value);
-        });
-      }
-    }
-    get(name: string) {
-      return this.headers.get(name.toLowerCase());
-    }
-    set(name: string, value: string) {
-      this.headers.set(name.toLowerCase(), value);
-    }
-    has(name: string) {
-      return this.headers.has(name.toLowerCase());
-    }
-    forEach(callback: (value: string, key: string) => void) {
-      this.headers.forEach((value, key) => callback(value, key));
-    }
-  },
-});
+function createAxiosMock(baseURL = 'https://api.example.com') {
+  return {
+    request: vi.fn(),
+    defaults: { baseURL },
+  } as unknown as AxiosInstance & { request: ReturnType<typeof vi.fn> };
+}
 
 describe('Schema Inference and Type Extraction', () => {
+  let axiosMock: ReturnType<typeof createAxiosMock>;
+  let client: ReturnType<typeof createClient<typeof testContract>>;
   beforeEach(() => {
-    mockFetch.mockClear();
+    axiosMock = createAxiosMock();
+    client = createClient<typeof testContract>(testContract, {
+      axios: axiosMock,
+    });
   });
 
   // Test contract with various schema types
@@ -53,14 +33,14 @@ describe('Schema Inference and Type Extraction', () => {
       response: z.object({
         id: z.string(),
         name: z.string(),
-        email: z.string().email(),
+        email: z.email(),
         age: z.number().min(0),
         isActive: z.boolean(),
         tags: z.array(z.string()),
         profile: z
           .object({
             bio: z.string().optional(),
-            avatar: z.string().url().optional(),
+            avatar: z.url().optional(),
           })
           .optional(),
       }),
@@ -70,14 +50,14 @@ describe('Schema Inference and Type Extraction', () => {
       method: 'post' as const,
       request: z.object({
         name: z.string().min(1),
-        email: z.string().email(),
+        email: z.email(),
         age: z.number().min(0).max(120),
       }),
       response: z.object({
         id: z.string(),
         name: z.string(),
         email: z.string(),
-        createdAt: z.string().datetime(),
+        createdAt: z.iso.datetime(),
       }),
     },
     // Nested contract for testing
@@ -91,7 +71,7 @@ describe('Schema Inference and Type Extraction', () => {
         }),
         response: z.object({
           success: z.boolean(),
-          updatedAt: z.string().datetime(),
+          updatedAt: z.iso.datetime(),
         }),
       },
       settings: {
@@ -122,7 +102,7 @@ describe('Schema Inference and Type Extraction', () => {
             users: z.array(z.object({
               id: z.string(),
               name: z.string(),
-              email: z.string().email(),
+              email: z.email(),
               role: z.enum(['admin', 'user']),
             })),
             total: z.number(),
@@ -166,9 +146,7 @@ describe('Schema Inference and Type Extraction', () => {
     },
   };
 
-  const client = createClient(testContract, {
-    baseUrl: 'https://api.example.com',
-  });
+  // client is initialized in beforeEach using axiosMock
 
   describe('Endpoint Method Schema Access', () => {
     it('should provide schema access on endpoint methods', () => {
@@ -269,7 +247,7 @@ describe('Schema Inference and Type Extraction', () => {
 
     it('should throw error for non-existent endpoint paths', () => {
       expect(() => {
-        client.$schema.getEndpointSchemas('nonExistent' as any);
+        client.$schema.getEndpointSchemas('nonExistent' as unknown as never);
       }).toThrow('Endpoint "nonExistent" not found or is not a valid endpoint');
     });
 
@@ -295,7 +273,7 @@ describe('Schema Inference and Type Extraction', () => {
 
     it('should throw error for non-existent endpoint description', () => {
       expect(() => {
-        client.$schema.describeEndpoint('nonExistent' as any);
+        client.$schema.describeEndpoint('nonExistent' as unknown as never);
       }).toThrow('Endpoint "nonExistent" not found or is not a valid endpoint');
     });
 
@@ -312,18 +290,18 @@ describe('Schema Inference and Type Extraction', () => {
 
   describe('Schema Validation', () => {
     beforeEach(() => {
-      mockFetch.mockResolvedValue({
-        ok: true,
+      axiosMock.request.mockResolvedValue({
         status: 200,
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => ({
+        statusText: 'OK',
+        headers: {},
+        data: {
           id: '123',
           name: 'John Doe',
           email: 'john@example.com',
           age: 30,
           isActive: true,
           tags: ['developer', 'typescript'],
-        }),
+        },
       });
     });
 
@@ -340,18 +318,20 @@ describe('Schema Inference and Type Extraction', () => {
 
     it('should validate response data against schema', async () => {
       // Mock invalid response
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      axiosMock.request.mockResolvedValueOnce({
         status: 200,
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => ({
+        statusText: 'OK',
+        headers: {},
+        data: {
           id: '123',
           name: 'John Doe',
-          // Missing required fields
-        }),
+        },
       });
 
-      await expect(client.getUser({ id: '123' })).rejects.toThrow();
+      const localClient = createClient(testContract, {
+        axios: axiosMock,
+      });
+      await expect(localClient.getUser({ id: '123' })).rejects.toThrow();
     });
   });
 

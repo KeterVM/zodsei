@@ -1,6 +1,6 @@
 {
   "name": "zodsei",
-  "version": "0.5.1",
+  "version": "1.0.1",
   "description": "Contract-first type-safe HTTP client with Zod validation",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
@@ -51,7 +51,7 @@
     "url": "https://github.com/KeterVM/zodsei/issues"
   },
   "dependencies": {
-    "@zod/core": "^0.11.6"
+    "axios": "^1.11.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
@@ -67,17 +67,5 @@
   },
   "peerDependencies": {
     "zod": "^4.0.0"
-  },
-  "peerDependenciesMeta": {
-    "axios": {
-      "optional": true
-    },
-    "ky": {
-      "optional": true
-    }
-  },
-  "optionalDependencies": {
-    "axios": "^1.11.0",
-    "ky": "^1.8.2"
   }
 }

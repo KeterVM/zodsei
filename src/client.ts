@@ -13,7 +13,7 @@ import {
 import { validateRequest, validateResponse } from './validation';
 import { separateParams, buildUrl, replacePath, shouldHaveBody } from './utils/path';
 import { createMiddlewareExecutor, MiddlewareExecutor } from './middleware';
-import { createAdapter, HttpAdapter } from './adapters';
+import { AxiosAdapter } from './adapters/axios';
 import { SchemaExtractor, createSchemaExtractor } from './schema';
 
 /**
@@ -23,7 +23,7 @@ export class ZodseiClient<T extends Contract> {
   private readonly contract: T;
   private readonly config: InternalClientConfig;
   private readonly middlewareExecutor: MiddlewareExecutor;
-  private adapter: HttpAdapter | null = null;
+  private adapter: AxiosAdapter | null = null;
   public readonly $schema: SchemaExtractor<T>;
 
   constructor(contract: T, config: ClientConfig) {
@@ -46,7 +46,7 @@ export class ZodseiClient<T extends Contract> {
             return this.createNestedClient(this.contract[prop] as Contract);
           }
         }
-        return (target as any)[prop];
+        return Reflect.get(target as object, prop) as unknown;
       },
     }) as ZodseiClient<T> & ApiClient<T>;
   }
@@ -56,25 +56,20 @@ export class ZodseiClient<T extends Contract> {
    */
   private normalizeConfig(config: ClientConfig): InternalClientConfig {
     return {
-      baseUrl: config.baseUrl.replace(/\/$/, ''),
       validateRequest: config.validateRequest ?? true,
       validateResponse: config.validateResponse ?? true,
-      headers: config.headers ?? {},
-      timeout: config.timeout ?? 30000,
-      retries: config.retries ?? 0,
       middleware: config.middleware ?? [],
-      adapter: config.adapter ?? 'fetch',
-      adapterConfig: config.adapterConfig ?? {},
+      axios: config.axios,
     };
   }
 
   /**
    * Check if a value is an endpoint definition
    */
-  private isEndpointDefinition(value: any): value is EndpointDefinition {
+  private isEndpointDefinition(value: unknown): value is EndpointDefinition {
     return (
-      value &&
       typeof value === 'object' &&
+      value !== null &&
       'path' in value &&
       'method' in value
     );
@@ -83,14 +78,14 @@ export class ZodseiClient<T extends Contract> {
   /**
    * Check if a value is a nested contract
    */
-  private isNestedContract(value: any): value is Contract {
-    return value && typeof value === 'object' && !this.isEndpointDefinition(value);
+  private isNestedContract(value: unknown): value is Contract {
+    return typeof value === 'object' && value !== null && !this.isEndpointDefinition(value);
   }
 
   /**
    * Create nested client for sub-contracts
    */
-  private createNestedClient(nestedContract: Contract): any {
+  private createNestedClient(nestedContract: Contract): ApiClient<Contract> {
     return new Proxy(
       {},
       {
@@ -109,10 +104,10 @@ export class ZodseiClient<T extends Contract> {
               return this.createNestedClient(nestedContract[prop] as Contract);
             }
           }
-          return undefined;
+          return undefined as unknown;
         },
       }
-    );
+    ) as ApiClient<Contract>;
   }
 
   /**
@@ -121,7 +116,7 @@ export class ZodseiClient<T extends Contract> {
   private createEndpointMethod(endpointName: string, endpoint?: EndpointDefinition) {
     const targetEndpoint = endpoint || (this.contract[endpointName] as EndpointDefinition);
 
-    const method = async (...args: any[]) => {
+    const method = async (...args: unknown[]) => {
       // 如果有 request schema，取第一个参数；否则传 undefined
       const data = targetEndpoint.request ? args[0] : undefined;
       return this.executeEndpoint(targetEndpoint, data) as Promise<InferResponseType<typeof targetEndpoint>>;
@@ -146,7 +141,7 @@ export class ZodseiClient<T extends Contract> {
   /**
    * Execute endpoint request
    */
-  private async executeEndpoint(endpoint: EndpointDefinition, data: any): Promise<any> {
+  private async executeEndpoint(endpoint: EndpointDefinition, data: unknown): Promise<unknown> {
     // Validate request data
     const validatedData = this.config.validateRequest
       ? validateRequest(endpoint.request, data)
@@ -171,20 +166,24 @@ export class ZodseiClient<T extends Contract> {
   /**
    * Build request context
    */
-  private buildRequestContext(endpoint: EndpointDefinition, data: any): RequestContext {
+  private buildRequestContext(endpoint: EndpointDefinition, data: unknown): RequestContext {
     const { path, method } = endpoint;
 
     // Separate path params and query params
-    const { pathParams, queryParams } = separateParams(path, data);
+    const { pathParams, queryParams } = separateParams(
+      path,
+      typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : undefined
+    );
 
     // Replace path parameters
     const finalPath = replacePath(path, pathParams);
 
     // Build URL
+    const base = this.config.axios?.defaults?.baseURL?.replace(/\/$/, '');
     const url =
       method.toLowerCase() === 'get'
-        ? buildUrl(this.config.baseUrl, finalPath, queryParams)
-        : buildUrl(this.config.baseUrl, finalPath);
+        ? buildUrl(base, finalPath, queryParams)
+        : buildUrl(base, finalPath);
 
     // Determine request body
     const body = shouldHaveBody(method)
@@ -196,29 +195,19 @@ export class ZodseiClient<T extends Contract> {
     return {
       url,
       method,
-      headers: { ...this.config.headers },
+      headers: {},
       body,
       params: pathParams,
-      query: method.toLowerCase() === 'get' ? queryParams : undefined,
+      query: method.toLowerCase() === 'get' ? (queryParams as Record<string, unknown>) : undefined,
     };
   }
 
   /**
    * Get adapter
    */
-  private async getAdapter(): Promise<HttpAdapter> {
+  private async getAdapter(): Promise<AxiosAdapter> {
     if (!this.adapter) {
-      const adapterConfig = {
-        timeout: this.config.timeout,
-        ...this.config.adapterConfig,
-      };
-
-      if (typeof this.config.adapter === 'string') {
-        this.adapter = await createAdapter(this.config.adapter, adapterConfig);
-      } else {
-        // Default to fetch adapter
-        this.adapter = await createAdapter('fetch', adapterConfig);
-      }
+      this.adapter = new AxiosAdapter(this.config.axios);
     }
     return this.adapter;
   }
@@ -248,7 +237,7 @@ export class ZodseiClient<T extends Contract> {
   /**
    * Add middleware
    */
-  public use(middleware: any): void {
+  public use(middleware: (request: RequestContext, next: (request: RequestContext) => Promise<ResponseContext>) => Promise<ResponseContext>): void {
     this.middlewareExecutor.use(middleware);
   }
 }

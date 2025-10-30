@@ -1,14 +1,19 @@
 import { z } from 'zod';
 import { defineContract, createClient, extractTypeInfo } from '../src';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { AxiosInstance } from 'axios';
 
-// Mock fetch
-const mockFetch = vi.fn();
-global.fetch = mockFetch;
+function createAxiosMock(baseURL = 'https://api.example.com') {
+  return {
+    request: vi.fn(),
+    defaults: { baseURL },
+  } as unknown as AxiosInstance & { request: ReturnType<typeof vi.fn> };
+}
 
 describe('Optional Schemas', () => {
+  let axiosMock: ReturnType<typeof createAxiosMock>;
   beforeEach(() => {
-    mockFetch.mockClear();
+    axiosMock = createAxiosMock();
   });
 
   const contract = defineContract({
@@ -57,7 +62,7 @@ describe('Optional Schemas', () => {
   } as const);
 
   const client = createClient(contract, {
-    baseUrl: 'https://api.example.com',
+    axios: createAxiosMock(),
   });
 
   describe('Type Inference', () => {
@@ -87,8 +92,8 @@ describe('Optional Schemas', () => {
       type HealthCheckRequest = typeof client.healthCheck.infer.request;
 
       // 这些应该是 void 类型
-      const getUsersRequest: GetUsersRequest = undefined as any;
-      const healthRequest: HealthCheckRequest = undefined as any;
+      const getUsersRequest: GetUsersRequest = undefined as unknown as GetUsersRequest;
+      const healthRequest: HealthCheckRequest = undefined as unknown as HealthCheckRequest;
 
       expect(getUsersRequest).toBeUndefined();
       expect(healthRequest).toBeUndefined();
@@ -215,8 +220,14 @@ describe('Optional Schemas', () => {
   });
 
   describe('Actual HTTP Requests', () => {
-    const client = createClient(contract, {
-      baseUrl: 'https://api.example.com',
+    const generateTestClient = () => {
+      return createClient<typeof contract>(contract, {
+        axios: axiosMock,
+      });
+    };
+    let client: ReturnType<typeof generateTestClient>;
+    beforeEach(() => {
+      client = generateTestClient();
     });
 
     it('should send requests with request schema validation', async () => {
@@ -227,12 +238,11 @@ describe('Optional Schemas', () => {
         email: 'john@example.com',
       };
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      axiosMock.request.mockResolvedValueOnce({
         status: 201,
         statusText: 'Created',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => mockUser,
+        headers: {},
+        data: mockUser,
       });
 
       // 测试有 request schema 的端点
@@ -244,18 +254,12 @@ describe('Optional Schemas', () => {
       expect(result.id).toBe('123');
       expect(result.name).toBe('John Doe');
       expect(result.email).toBe('john@example.com');
-      
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.example.com/users',
+
+      expect(axiosMock.request).toHaveBeenCalledWith(
         expect.objectContaining({
-          method: 'POST',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-          }),
-          body: JSON.stringify({
-            name: 'John Doe',
-            email: 'john@example.com',
-          }),
+          url: 'https://api.example.com/users',
+          method: 'post',
+          data: { name: 'John Doe', email: 'john@example.com' },
         })
       );
     });
@@ -270,12 +274,11 @@ describe('Optional Schemas', () => {
         },
       ];
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      axiosMock.request.mockResolvedValueOnce({
         status: 200,
         statusText: 'OK',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => mockUsers,
+        headers: {},
+        data: mockUsers,
       });
 
       // 测试没有 request schema 的端点（不传参数）
@@ -283,14 +286,11 @@ describe('Optional Schemas', () => {
 
       expect(Array.isArray(result)).toBe(true);
       expect(result[0].id).toBe('123');
-      
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.example.com/users',
+
+      expect(axiosMock.request).toHaveBeenCalledWith(
         expect.objectContaining({
-          method: 'GET',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-          }),
+          url: 'https://api.example.com/users',
+          method: 'get',
         })
       );
     });
@@ -299,27 +299,22 @@ describe('Optional Schemas', () => {
       // Mock 成功的响应（任意格式，因为没有 response schema）
       const mockResponse = 'User deleted successfully';
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      axiosMock.request.mockResolvedValueOnce({
         status: 200,
         statusText: 'OK',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => mockResponse,
+        headers: {},
+        data: mockResponse,
       });
 
       // 测试只有 request schema 的端点
       const result = await client.deleteUser({ id: '123' });
 
       expect(result).toBe('User deleted successfully');
-      
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.example.com/users/123',
+
+      expect(axiosMock.request).toHaveBeenCalledWith(
         expect.objectContaining({
-          method: 'DELETE',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-          }),
-          // DELETE 请求不应该有 body，因为 id 是路径参数
+          url: 'https://api.example.com/users/123',
+          method: 'delete',
         })
       );
     });
@@ -328,27 +323,24 @@ describe('Optional Schemas', () => {
       // Mock 成功的响应（任意格式，因为没有 response schema）
       const mockResponse = { status: 'ok', timestamp: Date.now() };
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      axiosMock.request.mockResolvedValueOnce({
         status: 200,
         statusText: 'OK',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => mockResponse,
+        headers: {},
+        data: mockResponse,
       });
 
       // 测试既没有 request 也没有 response schema 的端点（不传参数）
       const result = await client.healthCheck();
 
-      expect((result as any).status).toBe('ok');
-      expect((result as any).timestamp).toBeDefined();
-      
-      expect(mockFetch).toHaveBeenCalledWith(
-        'https://api.example.com/health',
+      const res = result as { status: string; timestamp: number };
+      expect(res.status).toBe('ok');
+      expect(res.timestamp).toBeDefined();
+
+      expect(axiosMock.request).toHaveBeenCalledWith(
         expect.objectContaining({
-          method: 'GET',
-          headers: expect.objectContaining({
-            'Content-Type': 'application/json',
-          }),
+          url: 'https://api.example.com/health',
+          method: 'get',
         })
       );
     });
@@ -359,23 +351,19 @@ describe('Optional Schemas', () => {
         client.createUser({
           name: 'John Doe',
           // 缺少 email 字段，应该抛出验证错误
-        } as any)
+        } as unknown as typeof client.createUser.infer.request)
       ).rejects.toThrow();
     });
 
     it('should validate response data when schema is present', async () => {
       // Mock 无效的响应数据
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      axiosMock.request.mockResolvedValueOnce({
         status: 201,
         statusText: 'Created',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => ({
-          // 缺少必需的字段，应该导致验证失败
+        headers: {},
+        data: {
           id: '123',
-          // name: 'John Doe', // 缺少
-          // email: 'john@example.com', // 缺少
-        }),
+        },
       });
 
       await expect(
@@ -390,12 +378,11 @@ describe('Optional Schemas', () => {
       // Mock 任意格式的响应
       const arbitraryResponse = 'any random response format';
 
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
+      axiosMock.request.mockResolvedValueOnce({
         status: 200,
         statusText: 'OK',
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => arbitraryResponse,
+        headers: {},
+        data: arbitraryResponse,
       });
 
       // 这应该成功，因为 healthCheck 没有 response schema（不传参数）

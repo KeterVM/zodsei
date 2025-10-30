@@ -5,6 +5,84 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] - 2025-10-30
+
+### Changed
+
+- Removed duplicate client config fields in favor of Axios instance configuration:
+  - Removed `baseUrl`, `headers`, `timeout`, `retries` from client config.
+  - Client now builds URLs using `axiosInstance.defaults.baseURL` (relative paths if absent).
+  - Default headers should be set on the Axios instance or via middleware.
+
+### Migration
+
+- Use Axios instance for connection concerns:
+  - Base URL: `axios.create({ baseURL: 'https://api.example.com' })`
+  - Headers: `axios.defaults.headers.common.Authorization = 'Bearer ...'` (or an auth middleware)
+  - Timeout: `axios.create({ timeout: 10_000 })`
+  - Retries: configure via `retryMiddleware({ retries: ... })`
+
+### Internal
+
+- Updated types and client implementation to drop now-redundant fields.
+- Updated examples/tests/README to reflect Axios-only + instance-driven configuration.
+
+## [1.0.0] - 2025-10-29
+
+### Breaking
+
+- Adapter system simplified to Axios-only. Removed fetch/ky adapters and the adapter factory.
+  - Removed exports: `createAdapter`, `isAdapterAvailable`, `getDefaultAdapter`, `FetchAdapter`, `KyAdapter`.
+  - Client config no longer supports `adapter`/`adapterConfig`.
+  - You must now inject your own Axios instance: `createClient(contract, { baseUrl, axios })`.
+
+### Changed
+
+- Client config switches to Axios instance injection (`AxiosInstance`); the client internally uses Axios.
+- README and README.zh-CN updated for Axios-only usage. Installation now lists `axios`. All examples call `createClient` with an Axios instance.
+- Tests and examples migrated to Axios injection; removed multi-adapter examples/tests.
+- Stricter ESLint: forbid explicit `any` in src; enable deprecated API checks for typed targets; disable typed rules for non-typed groups (examples/config/js) to avoid parserServices errors.
+- Zod v4 API usage unified: `z.uuid()`, `z.email()`, `z.url()`, `z.iso.datetime()`.
+- Types refined: replace `ZodSchema`/`ZodTypeAny` with `z.ZodType`; remove `any` in src in favor of `unknown` and precise types (adapters/client/utils).
+
+### Removed
+
+- Deleted files:
+  - `src/adapters/fetch.ts`
+  - `src/adapters/ky.ts`
+  - `tests/adapters.test.ts`
+  - `examples/adapter-usage.ts`
+  - `examples/type-safe-config.ts`
+
+### Migration
+
+- Creating a client:
+  - Before:
+
+    ```ts
+    const client = createClient(contract, { baseUrl, adapter: 'fetch', adapterConfig: { timeout: 10_000 } });
+    ```
+
+  - Now:
+
+    ```ts
+    import axios from 'axios';
+    const axiosInstance = axios.create({ baseURL: baseUrl, timeout: 10_000 });
+    const client = createClient(contract, { baseUrl, axios: axiosInstance });
+    ```
+
+- Adapter-related exports/types were removed; replace usage with Axios instance injection.
+- Zod API mapping: `z.string().uuid()`/`z.string().email()`/`z.string().url()`/`z.string().datetime()` → `z.uuid()`/`z.email()`/`z.url()`/`z.iso.datetime()`.
+- Tests: mock Axios `request` instead of `fetch`.
+
+### Internal
+
+- `src/validation.ts`, `src/types.ts`, `src/schema.ts` now use `z.ZodType` uniformly.
+- ESLint flat config:
+  - src/tests (typed): enable `@typescript-eslint/no-deprecated: error`, forbid explicit `any`.
+  - examples/config/js (non-typed): disable typed rules that require parserServices.
+- All tests pass (72/72).
+
 ## [0.5.1] - 2025-08-13
 
 ### Fixed
