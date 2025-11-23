@@ -257,7 +257,7 @@ describe('Optional Schemas', () => {
 
       expect(axiosMock.request).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: 'https://api.example.com/users',
+          url: '/users',
           method: 'post',
           data: { name: 'John Doe', email: 'john@example.com' },
         })
@@ -289,7 +289,7 @@ describe('Optional Schemas', () => {
 
       expect(axiosMock.request).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: 'https://api.example.com/users',
+          url: '/users',
           method: 'get',
         })
       );
@@ -313,7 +313,7 @@ describe('Optional Schemas', () => {
 
       expect(axiosMock.request).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: 'https://api.example.com/users/123',
+          url: '/users/123',
           method: 'delete',
         })
       );
@@ -339,7 +339,7 @@ describe('Optional Schemas', () => {
 
       expect(axiosMock.request).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: 'https://api.example.com/health',
+          url: '/health',
           method: 'get',
         })
       );

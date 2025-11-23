@@ -94,7 +94,7 @@ describe('ZodseiClient', () => {
       expect(result).toEqual(mockUser);
       expect(axiosMock.request).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: 'https://api.example.com/users/123e4567-e89b-12d3-a456-426614174000',
+          url: '/users/123e4567-e89b-12d3-a456-426614174000',
           method: 'get',
           headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
         })
@@ -146,7 +146,7 @@ describe('ZodseiClient', () => {
       expect(result).toEqual(mockPost);
       expect(axiosMock.request).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: 'https://api.example.com/users/123e4567-e89b-12d3-a456-426614174001/posts/123e4567-e89b-12d3-a456-426614174000',
+          url: '/users/123e4567-e89b-12d3-a456-426614174001/posts/123e4567-e89b-12d3-a456-426614174000',
           method: 'get',
         })
       );
@@ -179,7 +179,7 @@ describe('ZodseiClient', () => {
       expect(result).toEqual(mockUser);
       expect(axiosMock.request).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: 'https://api.example.com/users/user%20with%20spaces',
+          url: '/users/user%20with%20spaces',
           method: 'get',
         })
       );
@@ -235,7 +235,7 @@ describe('ZodseiClient', () => {
       expect(result).toEqual(mockResponse);
       expect(axiosMock.request).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: 'https://api.example.com/users/123e4567-e89b-12d3-a456-426614174000/posts?page=1&limit=10&search=test',
+          url: '/users/123e4567-e89b-12d3-a456-426614174000/posts?page=1&limit=10&search=test',
           method: 'get',
         })
       );
@@ -269,7 +269,7 @@ describe('ZodseiClient', () => {
     expect(result).toEqual(mockUser);
     expect(axiosMock.request).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: 'https://api.example.com/users',
+        url: '/users',
         method: 'post',
         data: requestData,
       })
@@ -301,7 +301,7 @@ describe('ZodseiClient', () => {
     expect(result).toEqual(mockResponse);
     expect(axiosMock.request).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: 'https://api.example.com/users?page=1&limit=10',
+        url: '/users?page=1&limit=10',
         method: 'get',
       })
     );

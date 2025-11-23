@@ -91,12 +91,8 @@ export class AxiosAdapter {
   }
 
   private createAxiosConfig(context: RequestContext): AxiosRequestConfig {
-    // Combine baseURL with relative path to create full URL
-    const baseURL = this.axios.defaults.baseURL || '';
-    const fullUrl = context.url.startsWith('http') ? context.url : `${baseURL}${context.url}`;
-
     const config: AxiosRequestConfig = {
-      url: fullUrl,
+      url: context.url,
       method: context.method.toLowerCase() as AxiosRequestConfig['method'],
       headers: {
         'Content-Type': 'application/json',
