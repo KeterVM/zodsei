@@ -67,12 +67,7 @@ export class ZodseiClient<T extends Contract> {
    * Check if a value is an endpoint definition
    */
   private isEndpointDefinition(value: unknown): value is EndpointDefinition {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      'path' in value &&
-      'method' in value
-    );
+    return typeof value === 'object' && value !== null && 'path' in value && 'method' in value;
   }
 
   /**
@@ -119,7 +114,9 @@ export class ZodseiClient<T extends Contract> {
     const method = async (...args: unknown[]) => {
       // 如果有 request schema，取第一个参数；否则传 undefined
       const data = targetEndpoint.request ? args[0] : undefined;
-      return this.executeEndpoint(targetEndpoint, data) as Promise<InferResponseType<typeof targetEndpoint>>;
+      return this.executeEndpoint(targetEndpoint, data) as Promise<
+        InferResponseType<typeof targetEndpoint>
+      >;
     };
 
     // Attach schema information to the method
@@ -178,12 +175,9 @@ export class ZodseiClient<T extends Contract> {
     // Replace path parameters
     const finalPath = replacePath(path, pathParams);
 
-    // Build URL
-    const base = this.config.axios?.defaults?.baseURL?.replace(/\/$/, '');
+    // Build URL (relative path; axios instance is responsible for baseURL)
     const url =
-      method.toLowerCase() === 'get'
-        ? buildUrl(base, finalPath, queryParams)
-        : buildUrl(base, finalPath);
+      method.toLowerCase() === 'get' ? buildUrl(finalPath, queryParams) : buildUrl(finalPath);
 
     // Determine request body
     const body = shouldHaveBody(method)
@@ -237,7 +231,12 @@ export class ZodseiClient<T extends Contract> {
   /**
    * Add middleware
    */
-  public use(middleware: (request: RequestContext, next: (request: RequestContext) => Promise<ResponseContext>) => Promise<ResponseContext>): void {
+  public use(
+    middleware: (
+      request: RequestContext,
+      next: (request: RequestContext) => Promise<ResponseContext>
+    ) => Promise<ResponseContext>
+  ): void {
     this.middlewareExecutor.use(middleware);
   }
 }

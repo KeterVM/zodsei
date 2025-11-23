@@ -37,15 +37,11 @@ export function buildQueryString(params: Record<string, unknown>): string {
   return queryString ? `?${queryString}` : '';
 }
 
-// Build complete URL
-export function buildUrl(baseUrl: string | undefined, path: string, query?: Record<string, unknown>): string {
+// Build path with optional query string
+export function buildUrl(path: string, query?: Record<string, unknown>): string {
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
   const queryString = query ? buildQueryString(query) : '';
-  if (!baseUrl) {
-    return `${cleanPath}${queryString}`;
-  }
-  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
-  return `${cleanBaseUrl}${cleanPath}${queryString}`;
+  return `${cleanPath}${queryString}`;
 }
 
 // Separate path params and query params
