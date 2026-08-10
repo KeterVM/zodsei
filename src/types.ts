@@ -88,52 +88,23 @@ export interface ResponseContext {
   data: unknown;
 }
 
-// Path parameter extraction type
-export type ExtractPathParams<T extends string> =
-  T extends `${infer _Start}:${infer Param}/${infer Rest}`
-    ? { [K in Param]: string } & ExtractPathParams<`/${Rest}`>
-    : T extends `${infer _Start}:${infer Param}`
-      ? { [K in Param]: string }
-      : object;
-
-// Request data separation type
-export type SeparateRequestData<T> =
-  T extends Record<string, unknown>
-    ? {
-        pathParams: ExtractPathParams<string>;
-        queryParams: Omit<T, keyof ExtractPathParams<string>>;
-        body: T;
-      }
-    : {
-        pathParams: object;
-        queryParams: object;
-        body: T;
-      };
-
 // Schema inference types
-export type InferRequestType<T extends EndpointDefinition> = 
-  T['request'] extends z.ZodType ? z.infer<T['request']> : void;
+export type InferRequestType<T extends EndpointDefinition> = T['request'] extends z.ZodType
+  ? z.infer<T['request']>
+  : void;
 
-export type InferResponseType<T extends EndpointDefinition> = 
-  T['response'] extends z.ZodType ? z.infer<T['response']> : unknown;
+export type InferResponseType<T extends EndpointDefinition> = T['response'] extends z.ZodType
+  ? z.infer<T['response']>
+  : unknown;
 
 // Enhanced endpoint method with schema access
 export interface EndpointMethodWithSchema<T extends EndpointDefinition> {
   (
-    ...args: T['request'] extends z.ZodType 
-      ? [data: InferRequestType<T>] 
-      : []
+    ...args: T['request'] extends z.ZodType ? [data: InferRequestType<T>] : []
   ): Promise<InferResponseType<T>>;
   schema: {
     request: T['request'];
     response: T['response'];
     endpoint: T;
   };
-  infer: {
-    request: InferRequestType<T>;
-    response: InferResponseType<T>;
-  };
 }
-
-// Legacy type alias for backward compatibility
-export type EnhancedApiClient<T extends Contract> = ApiClient<T>;

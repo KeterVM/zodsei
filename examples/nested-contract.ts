@@ -132,15 +132,15 @@ async function demonstrateNestedAccess() {
 
     // Method 4: Multiple nested operations
     console.log('\n4. Multiple nested operations:');
-    
+
     // Refresh token
     const refreshResult = await client.auth.refresh({ refreshToken: 'refresh-token' });
     console.log('Token refreshed:', refreshResult.token);
-    
+
     // Get user by ID
     const user = await client.users.getById({ id: newUser.id });
     console.log('Retrieved user:', user.name);
-    
+
     // Update user
     const updatedUser = await client.users.update({
       id: newUser.id,
@@ -148,11 +148,10 @@ async function demonstrateNestedAccess() {
       email: newUser.email,
     });
     console.log('Updated user:', updatedUser.name);
-    
+
     // Logout
     await client.auth.logout({});
     console.log('Logged out successfully');
-
   } catch (error) {
     console.error('Error:', error);
   }
@@ -161,22 +160,22 @@ async function demonstrateNestedAccess() {
 // Type checking examples
 function typeCheckingExamples() {
   console.log('\n=== Type Checking Examples ===');
-  
+
   // These should all have proper TypeScript types
-  
+
   // Nested access types
   const nestedLogin: typeof client.auth.login = client.auth.login;
   const nestedLogout: typeof client.auth.logout = client.auth.logout;
   const nestedRefresh: typeof client.auth.refresh = client.auth.refresh;
-  
+
   const nestedUserCreate: typeof client.users.create = client.users.create;
   const nestedUserGetById: typeof client.users.getById = client.users.getById;
   const nestedUserUpdate: typeof client.users.update = client.users.update;
   const nestedUserDelete: typeof client.users.delete = client.users.delete;
-  
+
   // Direct access types
   const healthCheck: typeof client.health = client.health;
-  
+
   console.log('All type checks passed!');
 }
 

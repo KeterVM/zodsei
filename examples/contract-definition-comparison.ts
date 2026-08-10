@@ -172,7 +172,7 @@ async function testTypeInference() {
   // const user2 = await client2.getUser({ id: 'uuid' });
   // const user3 = await client3.getUser({ id: 'uuid' });
   // const user4 = await client4.getUser({ id: 'uuid' });
-  
+
   console.log('✅ 所有方案都有正确的类型推导');
 }
 
@@ -185,11 +185,4 @@ console.log('2. 🥈 方案1 (satisfies): TypeScript 官方推荐，稍显冗长
 console.log('3. 🥉 方案4 (as const): 最简单，但缺少类型检查');
 console.log('4. 🔧 方案3 (自定义函数): 需要额外逻辑时使用');
 
-export {
-  contract1,
-  contract2,
-  contract3,
-  contract4,
-  contractWrong,
-  createContract,
-};
+export { contract1, contract2, contract3, contract4, contractWrong, createContract };

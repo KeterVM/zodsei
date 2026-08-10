@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { createClient, defineContract } from '../src';
+import {
+  createClient,
+  defineContract,
+  type InferRequestType,
+  type InferResponseType,
+} from '../src';
 import axios from 'axios';
 
 // 定义简单的测试合约
@@ -33,8 +38,8 @@ console.log('2. Schema 提取器正常:', !!client.$schema);
 console.log('3. 端点列表:', client.$schema.getEndpointPaths());
 
 // 4. 类型推断
-type RequestType = typeof client.getUser.infer.request;
-type ResponseType = typeof client.getUser.infer.response;
+type RequestType = InferRequestType<typeof contract.getUser>;
+type ResponseType = InferResponseType<typeof contract.getUser>;
 
 console.log('4. 类型推断正常 ✓');
 

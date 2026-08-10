@@ -99,12 +99,14 @@ describe('Schema Inference and Type Extraction', () => {
             search: z.string().optional(),
           }),
           response: z.object({
-            users: z.array(z.object({
-              id: z.string(),
-              name: z.string(),
-              email: z.email(),
-              role: z.enum(['admin', 'user']),
-            })),
+            users: z.array(
+              z.object({
+                id: z.string(),
+                name: z.string(),
+                email: z.email(),
+                role: z.enum(['admin', 'user']),
+              })
+            ),
             total: z.number(),
             page: z.number(),
             totalPages: z.number(),
@@ -164,17 +166,6 @@ describe('Schema Inference and Type Extraction', () => {
       expect(client.getUser.schema.endpoint).toEqual(testContract.getUser);
     });
 
-    it('should provide type inference helpers on endpoint methods', () => {
-      // Test infer property exists
-      expect(client.getUser.infer).toBeDefined();
-      expect(client.getUser.infer.request).toBeDefined();
-      expect(client.getUser.infer.response).toBeDefined();
-
-      // These are compile-time type helpers, so we just check they exist
-      expect(typeof client.getUser.infer.request).toBe('object');
-      expect(typeof client.getUser.infer.response).toBe('object');
-    });
-
     it('should work with nested contract endpoints', () => {
       // Test nested endpoint schema access
       expect(client.profile.update.schema).toBeDefined();
@@ -206,7 +197,9 @@ describe('Schema Inference and Type Extraction', () => {
       expect(client.admin.reports.analytics.daily.schema).toBeDefined();
       expect(client.admin.reports.analytics.daily.schema.request).toBeInstanceOf(z.ZodObject);
       expect(client.admin.reports.analytics.daily.schema.response).toBeInstanceOf(z.ZodObject);
-      expect(client.admin.reports.analytics.daily.schema.endpoint.path).toBe('/admin/reports/analytics/daily');
+      expect(client.admin.reports.analytics.daily.schema.endpoint.path).toBe(
+        '/admin/reports/analytics/daily'
+      );
       expect(client.admin.reports.analytics.daily.schema.endpoint.method).toBe('get');
     });
   });
@@ -259,8 +252,6 @@ describe('Schema Inference and Type Extraction', () => {
       expect(description.method).toBe('get');
       expect(description.requestSchema).toBeInstanceOf(z.ZodObject);
       expect(description.responseSchema).toBeInstanceOf(z.ZodObject);
-      expect(description.requestType).toBeDefined();
-      expect(description.responseType).toBeDefined();
     });
 
     it('should describe nested endpoint schemas', () => {
@@ -275,16 +266,6 @@ describe('Schema Inference and Type Extraction', () => {
       expect(() => {
         client.$schema.describeEndpoint('nonExistent' as unknown as never);
       }).toThrow('Endpoint "nonExistent" not found or is not a valid endpoint');
-    });
-
-    it('should provide schema description through describeEndpoint', () => {
-      const description = client.$schema.describeEndpoint('getUser');
-
-      expect(description).toBeDefined();
-      expect(description.requestType).toBeDefined();
-      expect(description.responseType).toBeDefined();
-      expect(typeof description.requestType).toBe('string');
-      expect(typeof description.responseType).toBe('string');
     });
   });
 
@@ -431,7 +412,9 @@ describe('Schema Inference and Type Extraction', () => {
             list: {
               request: { page: 1, limit: 10 },
               response: {
-                users: [{ id: '1', name: 'Admin', email: 'admin@example.com', role: 'admin' as const }],
+                users: [
+                  { id: '1', name: 'Admin', email: 'admin@example.com', role: 'admin' as const },
+                ],
                 total: 1,
                 page: 1,
                 totalPages: 1,
@@ -490,8 +473,12 @@ describe('Schema Inference and Type Extraction', () => {
       expect(listResponse.users.length).toBe(2);
 
       // Test 4-level nested endpoint types
-      type DailyAnalyticsRequest = InferRequestType<typeof testContract.admin.reports.analytics.daily>;
-      type DailyAnalyticsResponse = InferResponseType<typeof testContract.admin.reports.analytics.daily>;
+      type DailyAnalyticsRequest = InferRequestType<
+        typeof testContract.admin.reports.analytics.daily
+      >;
+      type DailyAnalyticsResponse = InferResponseType<
+        typeof testContract.admin.reports.analytics.daily
+      >;
 
       const analyticsRequest: DailyAnalyticsRequest = {
         date: '2023-12-25',

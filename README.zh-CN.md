@@ -53,16 +53,12 @@ Zodsei 提供：
 - 🔌 **中间件支持**：内置重试、缓存与自定义中间件
 - 🌐 **Axios 统一实现**：通过你传入的 Axios 实例发起请求
 - 🚀 **最小依赖**：Zod + Axios
-- 📦 **现代包**：同时提供 ESM/CJS，支持 Node.js 与浏览器
+- 📦 **现代包**：仅发布 ESM，支持现代 Node.js 与浏览器
 
 ## 安装
 
 ```bash
-npm install zodsei zod axios
-# or
-pnpm add zodsei zod axios
-# or
-yarn add zodsei zod axios
+bun add zodsei zod axios
 ```
 
 ## 快速开始
@@ -76,7 +72,7 @@ import { defineContract } from 'zodsei';
 const UserSchema = z.object({
   id: z.uuid(),
   name: z.string(),
-  email: z.email()
+  email: z.email(),
 });
 
 const apiContract = defineContract({
@@ -86,18 +82,18 @@ const apiContract = defineContract({
     request: z.object({
       id: z.uuid(),
     }),
-    response: UserSchema
+    response: UserSchema,
   },
-  
+
   createUser: {
     path: '/users',
     method: 'post' as const,
     request: z.object({
       name: z.string().min(1),
-      email: z.email()
+      email: z.email(),
     }),
-    response: UserSchema
-  }
+    response: UserSchema,
+  },
 });
 ```
 
@@ -123,14 +119,14 @@ const client = createClient(apiContract, {
 
 ```typescript
 // Fully type-safe API calls
-const user = await client.getUser({ 
-  id: '123e4567-e89b-12d3-a456-426614174000' 
+const user = await client.getUser({
+  id: '123e4567-e89b-12d3-a456-426614174000',
 });
 // user is automatically typed as { id: string, name: string, email: string }
 
 const newUser = await client.createUser({
   name: 'John Doe',
-  email: 'john@example.com'
+  email: 'john@example.com',
 });
 // newUser is also automatically typed
 ```
@@ -145,12 +141,13 @@ const user = await client.getUser({ id: '123e4567-e89b-12d3-a456-426614174000' }
 // `user` type is inferred from the endpoint response schema
 ```
 
-### 方法级类型助手：.infer
+### Contract 类型助手
 
 ```ts
-// Dev-time type helpers derived from the endpoint definition
-type GetUserRequest = typeof client.getUser.infer.request;
-type GetUserResponse = typeof client.getUser.infer.response;
+import type { InferRequestType, InferResponseType } from 'zodsei';
+
+type GetUserRequest = InferRequestType<typeof apiContract.getUser>;
+type GetUserResponse = InferResponseType<typeof apiContract.getUser>;
 ```
 
 ### 方法级 Schema：.schema
@@ -167,13 +164,13 @@ const resSchema = client.getUser.schema.response;
 // Explore the contract at runtime
 const endpointPaths = client.$schema.getEndpointPaths();
 const info = client.$schema.describeEndpoint('getUser');
-// info: { path, method, requestSchema, responseSchema, requestType, responseType }
+// info: { path, method, requestSchema, responseSchema }
 ```
 
 ### 嵌套Contract
 
 ```ts
-type LoginRequest = typeof client.auth.login.infer.request;
+type LoginRequest = InferRequestType<typeof contract.auth.login>;
 const getByIdSchemas = client.users.getById.schema;
 ```
 
@@ -201,9 +198,9 @@ const contract = defineContract({
   endpointName: {
     path: '/api/path/:param',
     method: 'post',
-    request: z.object({ /* request schema */ }),
-    response: z.object({ /* response schema */ })
-  }
+    request: z.object({/* request schema */}),
+    response: z.object({/* response schema */}),
+  },
 });
 ```
 
@@ -218,24 +215,24 @@ const contract = defineContract({
       path: '/auth/login',
       method: 'post',
       request: z.object({ email: z.string(), password: z.string() }),
-      response: z.object({ token: z.string() })
+      response: z.object({ token: z.string() }),
     },
     logout: {
       path: '/auth/logout',
       method: 'post',
       request: z.object({}),
-      response: z.object({ success: z.boolean() })
-    }
+      response: z.object({ success: z.boolean() }),
+    },
   }),
-  
+
   users: defineContract({
     getById: {
       path: '/users/:id',
       method: 'get',
       request: z.object({ id: z.string() }),
-      response: UserSchema
-    }
-  })
+      response: UserSchema,
+    },
+  }),
 });
 
 // Usage with nested structure
@@ -247,10 +244,10 @@ const user = await client.users.getById({ id: '123' });
 
 ```typescript
 interface ClientConfig {
-  axios: AxiosInstance;               // 你提供的 Axios 实例（必填）
-  validateRequest?: boolean;          // 启用请求校验（默认：true）
-  validateResponse?: boolean;         // 启用响应校验（默认：true）
-  middleware?: Middleware[];          // 自定义中间件
+  axios: AxiosInstance; // 你提供的 Axios 实例（必填）
+  validateRequest?: boolean; // 启用请求校验（默认：true）
+  validateResponse?: boolean; // 启用响应校验（默认：true）
+  middleware?: Middleware[]; // 自定义中间件
 }
 ```
 
@@ -272,9 +269,9 @@ const client = createClient(contract, {
       backoff: 'exponential',
       onRetry: (attempt, error) => {
         console.log(`Retry attempt ${attempt}:`, error.message);
-      }
-    })
-  ]
+      },
+    }),
+  ],
 });
 ```
 
@@ -288,8 +285,8 @@ const client = createClient(contract, {
   middleware: [
     cacheMiddleware({
       ttl: 60000, // Cache for 1 minute
-    })
-  ]
+    }),
+  ],
 });
 ```
 
@@ -305,25 +302,20 @@ const loggingMiddleware = async (request, next) => {
 
 const client = createClient(contract, {
   baseUrl: 'https://api.example.com',
-  middleware: [loggingMiddleware]
+  middleware: [loggingMiddleware],
 });
 ```
 
 ### HTTP 客户端
 
-Zodsei 统一使用 Axios。创建客户端时你需要提供一个 `AxiosInstance`。横切关注点（认证、日志、重试、缓存等）推荐通过 Zodsei 中间件实现。
+Zodsei 统一使用 Axios。创建客户端时你需要提供一个 `AxiosInstance`。配置在该实例上的拦截器会正常执行；Zodsei 本身不注册或管理拦截器。
 
 ### 错误处理
 
 Zodsei 为不同场景提供了特定错误类型：
 
 ```typescript
-import { 
-  ValidationError, 
-  HttpError, 
-  NetworkError, 
-  TimeoutError 
-} from 'zodsei';
+import { ValidationError, HttpError, NetworkError, TimeoutError } from 'zodsei';
 
 try {
   const user = await client.getUser({ id: 'invalid-uuid' });
@@ -342,27 +334,32 @@ try {
 
 ## 高级
 
-### 说明
+### Middleware 与 Axios Interceptor 的区别
 
-- 使用你自己的 Axios 实例以复用全局配置、拦截器与共享请求头。
-- 重试、缓存、认证头等推荐用 Zodsei 中间件实现，统一策略、更易测试。
+Middleware 和 Axios interceptor 工作在不同层级：
 
-### 中间件（推荐）
+|                    | Zodsei middleware                      | Axios interceptor                                      |
+| ------------------ | -------------------------------------- | ------------------------------------------------------ |
+| 输入               | `RequestContext` / `ResponseContext`   | `AxiosRequestConfig` / `AxiosResponse`                 |
+| 作用范围           | 单个 Zodsei client                     | Axios instance 的所有使用者                            |
+| 适合场景           | 缓存、重试、客户端专属认证、日志、Mock | Axios 配置、共享请求头、401 Token 刷新、Axios 专属错误 |
+| 能否完全跳过 Axios | 可以，例如缓存命中                     | 不能直接跳过；仍在 Axios 执行链内                      |
 
-使用中间件实现认证、日志、重试、错误处理等横切关注点：
+执行顺序如下：
 
-```typescript
-const authMiddleware = async (req, next) => {
-  const token = localStorage.getItem('token');
-  if (token) req.headers.Authorization = `Bearer ${token}`;
-  return next(req);
-};
-
-const client = createClient(contract, {
-  baseUrl: 'https://api.example.com',
-  middleware: [authMiddleware]
-});
+```text
+请求校验
+→ Zodsei middleware
+  → Axios request interceptor
+    → HTTP 请求
+  ← Axios response interceptor
+← Zodsei middleware
+← 响应校验
 ```
+
+当行为只属于某个 contract client，或者可能短路请求时，使用 middleware。当行为依赖 Axios 内部能力，或者需要共享给 Axios instance 的所有使用者时，使用 interceptor。简单的认证头两层都可以实现；401 Token 刷新通常更适合 Axios interceptor。
+
+不要同时在两层配置重试或缓存，否则可能产生重复请求、重复日志和重复副作用。
 
 ### 路径参数
 
@@ -373,16 +370,16 @@ const contract = defineContract({
     method: 'get' as const,
     request: z.object({
       userId: z.string().uuid(),
-      postId: z.string().uuid()
+      postId: z.string().uuid(),
     }),
-    response: PostSchema
-  }
+    response: PostSchema,
+  },
 });
 
 // Usage
 const post = await client.getUserPosts({
   userId: 'user-uuid',
-  postId: 'post-uuid'
+  postId: 'post-uuid',
 });
 ```
 
@@ -398,20 +395,20 @@ const contract = defineContract({
     request: z.object({
       q: z.string(),
       page: z.number().optional(),
-      limit: z.number().optional()
+      limit: z.number().optional(),
     }),
     response: z.object({
       users: z.array(UserSchema),
-      total: z.number()
-    })
-  }
+      total: z.number(),
+    }),
+  },
 });
 
 // Usage - generates: GET /users?q=john&page=1&limit=10
 const results = await client.searchUsers({
   q: 'john',
   page: 1,
-  limit: 10
+  limit: 10,
 });
 ```
 
@@ -425,19 +422,19 @@ const contract = defineContract({
     path: '/users/:id',
     method: 'put' as const,
     request: z.object({
-      id: z.string().uuid(),      // Path parameter
+      id: z.string().uuid(), // Path parameter
       name: z.string().optional(), // Body field
-      email: z.string().email().optional() // Body field
+      email: z.string().email().optional(), // Body field
     }),
-    response: UserSchema
-  }
+    response: UserSchema,
+  },
 });
 
 // Usage
 const updated = await client.updateUser({
   id: 'user-uuid',
   name: 'New Name',
-  email: 'new@example.com'
+  email: 'new@example.com',
 });
 ```
 
@@ -446,5 +443,13 @@ const updated = await client.updateUser({
 MIT
 
 ## 贡献
+
+本地开发统一使用 Bun 1.3.14 或更高版本，并使用 Oxlint 和 Oxfmt 完成检查与格式化：
+
+```bash
+bun install --frozen-lockfile
+bun run check
+bun run build
+```
 
 欢迎贡献！请阅读贡献指南并向仓库提交 PR。

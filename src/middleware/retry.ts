@@ -90,6 +90,7 @@ export function retryMiddleware(config: RetryConfig): Middleware {
 
 /**
  * Create simple retry middleware
+ * @deprecated Use retryMiddleware for explicit retry behavior.
  */
 export function simpleRetry(retries: number, delay: number = 1000): Middleware {
   return retryMiddleware({

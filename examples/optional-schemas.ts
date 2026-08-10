@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { defineContract, createClient, extractTypeInfo } from '../src';
+import {
+  defineContract,
+  createClient,
+  extractTypeInfo,
+  type InferRequestType,
+  type InferResponseType,
+} from '../src';
 import axios from 'axios';
 
 // 定义包含可选 schema 的合约
@@ -23,11 +29,13 @@ const contract = defineContract({
   getUsers: {
     path: '/users',
     method: 'get',
-    response: z.array(z.object({
-      id: z.string(),
-      name: z.string(),
-      email: z.email(),
-    })),
+    response: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        email: z.email(),
+      })
+    ),
   },
 
   // 只有 request schema 的端点（比如删除操作）
@@ -106,7 +114,7 @@ async function demonstrateOptionalSchemas() {
 
   // 7. 使用 schema 提取器
   const schema = client.$schema;
-  
+
   // 描述不同类型的端点
   console.log('createUser description:', schema.describeEndpoint('createUser'));
   console.log('getUsers description:', schema.describeEndpoint('getUsers'));
@@ -114,11 +122,11 @@ async function demonstrateOptionalSchemas() {
   console.log('healthCheck description:', schema.describeEndpoint('healthCheck'));
 
   // 8. 类型推断示例
-  type CreateUserRequest = typeof client.createUser.infer.request; // { name: string; email: string; }
-  type GetUsersRequest = typeof client.getUsers.infer.request; // void
-  type DeleteUserResponse = typeof client.deleteUser.infer.response; // unknown
-  type HealthCheckRequest = typeof client.healthCheck.infer.request; // void
-  type HealthCheckResponse = typeof client.healthCheck.infer.response; // unknown
+  type CreateUserRequest = InferRequestType<typeof contract.createUser>;
+  type GetUsersRequest = InferRequestType<typeof contract.getUsers>;
+  type DeleteUserResponse = InferResponseType<typeof contract.deleteUser>;
+  type HealthCheckRequest = InferRequestType<typeof contract.healthCheck>;
+  type HealthCheckResponse = InferResponseType<typeof contract.healthCheck>;
 
   // 9. 运行时检查 schema 是否存在
   const createUserInfo = extractTypeInfo(contract.createUser);
@@ -133,14 +141,14 @@ async function demonstrateOptionalSchemas() {
 // 类型安全验证
 function typeValidation() {
   // ✅ 正确：有 request schema 的端点需要传入参数
-  client.createUser({ name: 'John', email: 'john@example.com' });
-  client.deleteUser({ id: '123' });
-  client.admin.clearCache({ confirm: true });
+  void client.createUser({ name: 'John', email: 'john@example.com' });
+  void client.deleteUser({ id: '123' });
+  void client.admin.clearCache({ confirm: true });
 
   // ✅ 正确：没有 request schema 的端点不需要参数
-  client.getUsers();
-  client.healthCheck();
-  client.admin.getStats();
+  void client.getUsers();
+  void client.healthCheck();
+  void client.admin.getStats();
 
   // ❌ 错误：这些调用会产生 TypeScript 错误
   // client.getUsers({ someParam: 'value' }); // 不应该传入参数

@@ -1,99 +1,80 @@
 import { z } from 'zod';
 import { ValidationError } from './errors';
 
-/**
- * Validation utility functions
- */
+type ValidationType = 'request' | 'response';
+type SafeValidationResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: ValidationError };
 
-// Validate request data
+function validate<T>(schema: z.ZodType<T> | undefined, data: unknown, type: ValidationType): T {
+  if (!schema) {
+    return data as T;
+  }
+
+  try {
+    return schema.parse(data);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw ValidationError.fromZodError(error, type);
+    }
+    throw error;
+  }
+}
+
+function safeValidate<T>(
+  schema: z.ZodType<T> | undefined,
+  data: unknown,
+  type: ValidationType
+): SafeValidationResult<T> {
+  if (!schema) {
+    return { success: true, data: data as T };
+  }
+
+  try {
+    const result = schema.safeParse(data);
+    return result.success
+      ? { success: true, data: result.data }
+      : { success: false, error: ValidationError.fromZodError(result.error, type) };
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return { success: false, error: ValidationError.fromZodError(error, type) };
+    }
+    return {
+      success: false,
+      error: new ValidationError('Unknown validation error', [], type),
+    };
+  }
+}
+
 export function validateRequest<T>(schema: z.ZodType<T> | undefined, data: unknown): T {
-  if (!schema) {
-    return data as T;
-  }
-  
-  try {
-    return schema.parse(data);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw ValidationError.fromZodError(error, 'request');
-    }
-    throw error;
-  }
+  return validate(schema, data, 'request');
 }
 
-// Validate response data
 export function validateResponse<T>(schema: z.ZodType<T> | undefined, data: unknown): T {
-  if (!schema) {
-    return data as T;
-  }
-  
-  try {
-    return schema.parse(data);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw ValidationError.fromZodError(error, 'response');
-    }
-    throw error;
-  }
+  return validate(schema, data, 'response');
 }
 
-// Safe parse (no error throwing)
 export function safeParseRequest<T>(
-  schema: z.ZodType<T> | undefined, 
+  schema: z.ZodType<T> | undefined,
   data: unknown
-): { success: true; data: T } | { success: false; error: ValidationError } {
-  if (!schema) {
-    return { success: true, data: data as T };
-  }
-  
-  try {
-    const result = schema.parse(data);
-    return { success: true, data: result };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: ValidationError.fromZodError(error, 'request') };
-    }
-    return { 
-      success: false, 
-      error: new ValidationError('Unknown validation error', [], 'request') 
-    };
-  }
+): SafeValidationResult<T> {
+  return safeValidate(schema, data, 'request');
 }
 
-// Safe parse response
 export function safeParseResponse<T>(
-  schema: z.ZodType<T> | undefined, 
+  schema: z.ZodType<T> | undefined,
   data: unknown
-): { success: true; data: T } | { success: false; error: ValidationError } {
-  if (!schema) {
-    return { success: true, data: data as T };
-  }
-  
-  try {
-    const result = schema.parse(data);
-    return { success: true, data: result };
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: ValidationError.fromZodError(error, 'response') };
-    }
-    return { 
-      success: false, 
-      error: new ValidationError('Unknown validation error', [], 'response') 
-    };
-  }
+): SafeValidationResult<T> {
+  return safeValidate(schema, data, 'response');
 }
 
-// Create optional validator
+/** @deprecated Prefer the individual validation functions. */
 export function createValidator<T>(schema: z.ZodType<T> | undefined, enabled: boolean) {
+  const passthrough = (data: unknown) => data as T;
+
   return {
-    validateRequest: enabled 
-      ? (data: unknown) => validateRequest(schema, data)
-      : (data: unknown) => data as T,
-    
-    validateResponse: enabled 
-      ? (data: unknown) => validateResponse(schema, data)
-      : (data: unknown) => data as T,
-    
+    validateRequest: enabled ? (data: unknown) => validateRequest(schema, data) : passthrough,
+    validateResponse: enabled ? (data: unknown) => validateResponse(schema, data) : passthrough,
     safeParseRequest: (data: unknown) => safeParseRequest(schema, data),
     safeParseResponse: (data: unknown) => safeParseResponse(schema, data),
   };

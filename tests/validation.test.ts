@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
-import { 
-  validateRequest, 
-  validateResponse, 
-  safeParseRequest, 
-  safeParseResponse, 
-  createValidator 
+import {
+  validateRequest,
+  validateResponse,
+  safeParseRequest,
+  safeParseResponse,
+  createValidator,
 } from '../src/validation';
 import { ValidationError } from '../src/errors';
 
@@ -14,21 +14,21 @@ describe('Validation Utilities', () => {
     id: z.uuid(),
     name: z.string().min(1),
     email: z.email(),
-    age: z.number().min(0).optional()
+    age: z.number().min(0).optional(),
   });
 
   const validUser = {
     id: '123e4567-e89b-12d3-a456-426614174000',
     name: 'John Doe',
     email: 'john@example.com',
-    age: 30
+    age: 30,
   };
 
   const invalidUser = {
     id: 'invalid-uuid',
     name: '',
     email: 'invalid-email',
-    age: -5
+    age: -5,
   };
 
   describe('validateRequest', () => {
@@ -38,8 +38,7 @@ describe('Validation Utilities', () => {
     });
 
     it('should throw ValidationError for invalid request data', () => {
-      expect(() => validateRequest(userSchema, invalidUser))
-        .toThrow(ValidationError);
+      expect(() => validateRequest(userSchema, invalidUser)).toThrow(ValidationError);
     });
 
     it('should throw ValidationError with correct type for request', () => {
@@ -55,11 +54,10 @@ describe('Validation Utilities', () => {
       const throwingSchema = {
         parse: () => {
           throw new Error('Custom error');
-        }
+        },
       } as unknown as z.ZodType<unknown>;
 
-      expect(() => validateRequest(throwingSchema, validUser))
-        .toThrow('Custom error');
+      expect(() => validateRequest(throwingSchema, validUser)).toThrow('Custom error');
     });
   });
 
@@ -70,8 +68,7 @@ describe('Validation Utilities', () => {
     });
 
     it('should throw ValidationError for invalid response data', () => {
-      expect(() => validateResponse(userSchema, invalidUser))
-        .toThrow(ValidationError);
+      expect(() => validateResponse(userSchema, invalidUser)).toThrow(ValidationError);
     });
 
     it('should throw ValidationError with correct type for response', () => {
@@ -87,11 +84,10 @@ describe('Validation Utilities', () => {
       const throwingSchema = {
         parse: () => {
           throw new Error('Custom error');
-        }
+        },
       } as unknown as z.ZodType<unknown>;
 
-      expect(() => validateResponse(throwingSchema, validUser))
-        .toThrow('Custom error');
+      expect(() => validateResponse(throwingSchema, validUser)).toThrow('Custom error');
     });
   });
 
@@ -117,7 +113,7 @@ describe('Validation Utilities', () => {
       const throwingSchema = {
         parse: () => {
           throw new Error('Custom error');
-        }
+        },
       } as unknown as z.ZodType<unknown>;
 
       const result = safeParseRequest(throwingSchema, validUser);
@@ -152,7 +148,7 @@ describe('Validation Utilities', () => {
       const throwingSchema = {
         parse: () => {
           throw new Error('Custom error');
-        }
+        },
       } as unknown as z.ZodType<unknown>;
 
       const result = safeParseResponse(throwingSchema, validUser);
@@ -168,29 +164,27 @@ describe('Validation Utilities', () => {
   describe('createValidator', () => {
     it('should create validator with validation enabled', () => {
       const validator = createValidator(userSchema, true);
-      
+
       // Test validateRequest
       const requestResult = validator.validateRequest(validUser);
       expect(requestResult).toEqual(validUser);
-      
-      expect(() => validator.validateRequest(invalidUser))
-        .toThrow(ValidationError);
+
+      expect(() => validator.validateRequest(invalidUser)).toThrow(ValidationError);
 
       // Test validateResponse
       const responseResult = validator.validateResponse(validUser);
       expect(responseResult).toEqual(validUser);
-      
-      expect(() => validator.validateResponse(invalidUser))
-        .toThrow(ValidationError);
+
+      expect(() => validator.validateResponse(invalidUser)).toThrow(ValidationError);
     });
 
     it('should create validator with validation disabled', () => {
       const validator = createValidator(userSchema, false);
-      
+
       // Should return data as-is without validation
       const requestResult = validator.validateRequest(invalidUser);
       expect(requestResult).toEqual(invalidUser);
-      
+
       const responseResult = validator.validateResponse(invalidUser);
       expect(responseResult).toEqual(invalidUser);
     });
@@ -198,14 +192,14 @@ describe('Validation Utilities', () => {
     it('should always provide safe parse methods regardless of enabled flag', () => {
       const enabledValidator = createValidator(userSchema, true);
       const disabledValidator = createValidator(userSchema, false);
-      
+
       // Both should have safe parse methods
       const enabledResult = enabledValidator.safeParseRequest(validUser);
       const disabledResult = disabledValidator.safeParseRequest(validUser);
-      
+
       expect(enabledResult.success).toBe(true);
       expect(disabledResult.success).toBe(true);
-      
+
       if (enabledResult.success && disabledResult.success) {
         expect(enabledResult.data).toEqual(validUser);
         expect(disabledResult.data).toEqual(validUser);
@@ -214,13 +208,13 @@ describe('Validation Utilities', () => {
 
     it('should handle safe parse errors correctly', () => {
       const validator = createValidator(userSchema, true);
-      
+
       const requestResult = validator.safeParseRequest(invalidUser);
       const responseResult = validator.safeParseResponse(invalidUser);
-      
+
       expect(requestResult.success).toBe(false);
       expect(responseResult.success).toBe(false);
-      
+
       if (!requestResult.success) {
         expect(requestResult.error.type).toBe('request');
       }

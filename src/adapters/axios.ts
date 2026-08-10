@@ -14,7 +14,8 @@ export class AxiosAdapter {
     this.axios = axiosInstance;
   }
 
-  // Interceptors are not supported. Use middleware in the client instead.
+  // Interceptors configured on the provided Axios instance run normally.
+  // Zodsei does not register or manage them.
 
   async request(context: RequestContext): Promise<ResponseContext> {
     try {
@@ -101,7 +102,7 @@ export class AxiosAdapter {
     };
 
     // Add request body
-    if (context.body !== undefined && !['GET', 'HEAD'].includes(context.method.toUpperCase())) {
+    if (context.body !== undefined) {
       config.data = context.body;
     }
 

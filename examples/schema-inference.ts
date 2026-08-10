@@ -105,9 +105,9 @@ async function demonstrateSchemaFeatures() {
   console.log('Get user response schema:', client.getUser.schema.response);
   console.log('Get user endpoint info:', client.getUser.schema.endpoint);
 
-  // 3. Type inference helpers (useful for development/debugging)
-  type GetUserRequest = typeof client.getUser.infer.request;
-  type GetUserResponse = typeof client.getUser.infer.response;
+  // 3. Compile-time type inference from the contract
+  type GetUserRequest = InferRequestType<typeof apiContract.getUser>;
+  type GetUserResponse = InferResponseType<typeof apiContract.getUser>;
 
   // 4. Using the $schema extractor for advanced operations
   const schema = client.$schema;

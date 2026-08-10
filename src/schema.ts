@@ -1,21 +1,9 @@
-import { z } from 'zod';
-import type { Contract, EndpointDefinition } from './types';
+import type { z } from 'zod';
+import type { Contract, EndpointDefinition, InferRequestType, InferResponseType } from './types';
 
 /**
  * Schema inference and extraction utilities
  */
-
-/**
- * Extract request type from endpoint definition
- */
-export type InferRequestType<T extends EndpointDefinition> = 
-  T['request'] extends z.ZodType ? z.infer<T['request']> : void;
-
-/**
- * Extract response type from endpoint definition
- */
-export type InferResponseType<T extends EndpointDefinition> = 
-  T['response'] extends z.ZodType ? z.infer<T['response']> : unknown;
 
 /**
  * Extract all endpoint types from a contract
@@ -111,16 +99,7 @@ export class SchemaExtractor<T extends Contract> {
   }
 
   /**
-   * Get all nested contract paths
-   */
-  getNestedPaths(): Array<keyof T> {
-    return Object.keys(this.contract).filter((key) =>
-      this.isNestedContract(this.contract[key])
-    ) as Array<keyof T>;
-  }
-
-  /**
-   * Generate OpenAPI-like schema description
+   * Describe an endpoint using its public contract data.
    */
   describeEndpoint<K extends keyof T>(
     path: K
@@ -130,8 +109,6 @@ export class SchemaExtractor<T extends Contract> {
         method: string;
         requestSchema: z.ZodType | undefined;
         responseSchema: z.ZodType | undefined;
-        requestType: string;
-        responseType: string;
       }
     : never {
     const endpoint = this.getEndpoint(path);
@@ -141,97 +118,16 @@ export class SchemaExtractor<T extends Contract> {
       method: endpoint.method,
       requestSchema: endpoint.request,
       responseSchema: endpoint.response,
-      requestType: endpoint.request ? this.getSchemaDescription(endpoint.request) : 'void',
-      responseType: endpoint.response ? this.getSchemaDescription(endpoint.response) : 'unknown',
     };
 
     return result as T[K] extends EndpointDefinition
       ? {
           path: string;
           method: string;
-          requestSchema: z.ZodType;
-          responseSchema: z.ZodType;
-          requestType: string;
-          responseType: string;
+          requestSchema: z.ZodType | undefined;
+          responseSchema: z.ZodType | undefined;
         }
       : never;
-  }
-
-  /**
-   * Generate schema description for documentation
-   */
-  private getSchemaDescription(schema: z.ZodType | undefined): string {
-    if (!schema) {
-      return 'undefined';
-    }
-    
-    try {
-      // Try to get a basic description of the schema
-      if (schema instanceof z.ZodObject) {
-        const shape = schema.shape;
-        const fields = Object.keys(shape).map((key) => {
-          const field = shape[key] as z.ZodType;
-          return `${key}: ${this.getZodTypeDescription(field)}`;
-        });
-        return `{ ${fields.join(', ')} }`;
-      }
-      return this.getZodTypeDescription(schema);
-    } catch {
-      return 'unknown';
-    }
-  }
-
-  /**
-   * Get basic Zod type description
-   */
-  private getZodTypeDescription(schema: z.ZodType): string {
-    // Use the _def property to determine the type, which is more reliable
-    const meta = schema as unknown as { def?: { typeName?: string; type?: z.ZodType; innerType?: z.ZodType; value?: unknown }; _def?: { typeName?: string; type?: z.ZodType; innerType?: z.ZodType; value?: unknown } };
-    const def = meta.def ?? meta._def;
-    if (def?.typeName) {
-      switch (def.typeName) {
-        case 'ZodString': return 'string';
-        case 'ZodNumber': return 'number';
-        case 'ZodBoolean': return 'boolean';
-        case 'ZodArray': 
-          return def.type ? `${this.getZodTypeDescription(def.type)}[]` : 'array';
-        case 'ZodOptional': 
-          return def.innerType ? `${this.getZodTypeDescription(def.innerType)}?` : 'optional';
-        case 'ZodNullable': 
-          return def.innerType ? `${this.getZodTypeDescription(def.innerType)} | null` : 'nullable';
-        case 'ZodObject': return 'object';
-        case 'ZodUnion': return 'union';
-        case 'ZodLiteral': return `literal(${JSON.stringify(def.value)})`;
-        case 'ZodEnum': return 'enum';
-        default: return def.typeName.replace('Zod', '').toLowerCase();
-      }
-    }
-    
-    // Fallback to instanceof checks for older versions
-    try {
-      if (schema instanceof z.ZodString) return 'string';
-      if (schema instanceof z.ZodNumber) return 'number';
-      if (schema instanceof z.ZodBoolean) return 'boolean';
-      if (schema instanceof z.ZodArray) {
-        // Safe access to element property
-        const element = (schema as z.ZodArray<z.ZodType>).element;
-        return element ? `${this.getZodTypeDescription(element)}[]` : 'array';
-      }
-      if (schema instanceof z.ZodOptional) {
-        // Safe access to unwrap method
-        const inner = (schema as z.ZodOptional<z.ZodType>).unwrap();
-        return inner ? `${this.getZodTypeDescription(inner)}?` : 'optional';
-      }
-      if (schema instanceof z.ZodNullable) {
-        // Safe access to unwrap method
-        const inner = (schema as z.ZodNullable<z.ZodType>).unwrap();
-        return inner ? `${this.getZodTypeDescription(inner)} | null` : 'nullable';
-      }
-      if (schema instanceof z.ZodObject) return 'object';
-    } catch {
-      // Ignore errors and return unknown
-    }
-    return 'unknown';
   }
 
   /**
@@ -259,22 +155,6 @@ export class SchemaExtractor<T extends Contract> {
     );
   }
 }
-
-/**
- * Create a schema extractor for a contract
- */
-export function createSchemaExtractor<T extends Contract>(contract: T): SchemaExtractor<T> {
-  return new SchemaExtractor(contract);
-}
-
-/**
- * Utility type to infer endpoint method signature
- */
-export type InferEndpointMethod<T extends EndpointDefinition> = (
-  ...args: T['request'] extends z.ZodSchema 
-    ? [data: InferRequestType<T>] 
-    : []
-) => Promise<InferResponseType<T>>;
 
 /**
  * Utility to extract type information at runtime

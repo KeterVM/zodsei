@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { defineContract, createClient, extractTypeInfo } from '../src';
+import type { InferRequestType, InferResponseType } from '../src';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { AxiosInstance } from 'axios';
 
@@ -51,6 +52,7 @@ describe('Optional Schemas', () => {
       method: 'delete',
       request: z.object({
         id: z.string(),
+        force: z.boolean().optional(),
       }),
     },
 
@@ -68,8 +70,8 @@ describe('Optional Schemas', () => {
   describe('Type Inference', () => {
     it('should infer correct types for endpoints with schemas', () => {
       // 类型推断测试
-      type CreateUserRequest = typeof client.createUser.infer.request;
-      type CreateUserResponse = typeof client.createUser.infer.response;
+      type CreateUserRequest = InferRequestType<typeof contract.createUser>;
+      type CreateUserResponse = InferResponseType<typeof contract.createUser>;
 
       // 这些类型应该被正确推断
       const request: CreateUserRequest = {
@@ -88,8 +90,8 @@ describe('Optional Schemas', () => {
     });
 
     it('should infer void for endpoints without request schema', () => {
-      type GetUsersRequest = typeof client.getUsers.infer.request;
-      type HealthCheckRequest = typeof client.healthCheck.infer.request;
+      type GetUsersRequest = InferRequestType<typeof contract.getUsers>;
+      type HealthCheckRequest = InferRequestType<typeof contract.healthCheck>;
 
       // 这些应该是 void 类型
       const getUsersRequest: GetUsersRequest = undefined as unknown as GetUsersRequest;
@@ -100,8 +102,8 @@ describe('Optional Schemas', () => {
     });
 
     it('should infer unknown for endpoints without response schema', () => {
-      type DeleteUserResponse = typeof client.deleteUser.infer.response;
-      type HealthCheckResponse = typeof client.healthCheck.infer.response;
+      type DeleteUserResponse = InferResponseType<typeof contract.deleteUser>;
+      type HealthCheckResponse = InferResponseType<typeof contract.healthCheck>;
 
       // 这些应该是 unknown 类型
       const deleteResponse: DeleteUserResponse = 'any value';
@@ -143,27 +145,21 @@ describe('Optional Schemas', () => {
       expect(createUserDesc.method).toBe('post');
       expect(createUserDesc.requestSchema).toBeDefined();
       expect(createUserDesc.responseSchema).toBeDefined();
-      expect(createUserDesc.requestType).toContain('name');
-      expect(createUserDesc.responseType).toContain('id');
 
       // 只有 response schema
       const getUsersDesc = schema.describeEndpoint('getUsers');
       expect(getUsersDesc.requestSchema).toBeUndefined();
       expect(getUsersDesc.responseSchema).toBeDefined();
-      expect(getUsersDesc.requestType).toBe('void');
 
       // 只有 request schema
       const deleteUserDesc = schema.describeEndpoint('deleteUser');
       expect(deleteUserDesc.requestSchema).toBeDefined();
       expect(deleteUserDesc.responseSchema).toBeUndefined();
-      expect(deleteUserDesc.responseType).toBe('unknown');
 
       // 没有 schema
       const healthDesc = schema.describeEndpoint('healthCheck');
       expect(healthDesc.requestSchema).toBeUndefined();
       expect(healthDesc.responseSchema).toBeUndefined();
-      expect(healthDesc.requestType).toBe('void');
-      expect(healthDesc.responseType).toBe('unknown');
     });
   });
 
@@ -307,7 +303,7 @@ describe('Optional Schemas', () => {
       });
 
       // 测试只有 request schema 的端点
-      const result = await client.deleteUser({ id: '123' });
+      const result = await client.deleteUser({ id: '123', force: true });
 
       expect(result).toBe('User deleted successfully');
 
@@ -315,6 +311,7 @@ describe('Optional Schemas', () => {
         expect.objectContaining({
           url: '/users/123',
           method: 'delete',
+          params: { force: true },
         })
       );
     });
@@ -351,7 +348,7 @@ describe('Optional Schemas', () => {
         client.createUser({
           name: 'John Doe',
           // 缺少 email 字段，应该抛出验证错误
-        } as unknown as typeof client.createUser.infer.request)
+        } as unknown as InferRequestType<typeof contract.createUser>)
       ).rejects.toThrow();
     });
 

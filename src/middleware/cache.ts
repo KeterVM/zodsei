@@ -141,6 +141,7 @@ export function cacheMiddleware(config: CacheConfig): Middleware {
 
 /**
  * Create simple cache middleware
+ * @deprecated Use cacheMiddleware for explicit cache behavior.
  */
 export function simpleCache(ttl: number): Middleware {
   return cacheMiddleware({ ttl });

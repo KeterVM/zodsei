@@ -7,15 +7,7 @@ export { createClient, ZodseiClient } from './client';
 export { defineContract } from './types';
 
 // Schema exports
-export {
-  SchemaExtractor,
-  createSchemaExtractor,
-  extractTypeInfo,
-  type InferRequestType,
-  type InferResponseType,
-  type InferContractTypes,
-  type InferEndpointMethod,
-} from './schema';
+export { SchemaExtractor, extractTypeInfo, type InferContractTypes } from './schema';
 
 // Type exports
 export type {
@@ -23,14 +15,13 @@ export type {
   EndpointDefinition,
   ClientConfig,
   ApiClient,
-  EnhancedApiClient,
   EndpointMethodWithSchema,
+  InferRequestType,
+  InferResponseType,
   HttpMethod,
   RequestContext,
   ResponseContext,
   Middleware,
-  ExtractPathParams,
-  SeparateRequestData,
 } from './types';
 
 // Error class exports
@@ -77,6 +68,7 @@ export {
 export { mergeHeaders } from './utils/request';
 
 // Adapter exports
+/** @deprecated Use createClient with ClientConfig.axios. */
 export { AxiosAdapter } from './adapters/axios';
 
 // Re-export zod for user convenience

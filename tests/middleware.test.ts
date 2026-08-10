@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createClient } from '../src';
 import { retryMiddleware, cacheMiddleware } from '../src';
 import type { AxiosInstance } from 'axios';
+import type { Middleware } from '../src';
 
 function createAxiosMock(baseURL = 'https://api.example.com') {
   return {
@@ -22,14 +23,14 @@ describe('Middleware', () => {
       path: '/users/:id',
       method: 'get' as const,
       request: z.object({
-        id: z.uuid()
+        id: z.uuid(),
       }),
       response: z.object({
         id: z.uuid(),
         name: z.string(),
-        email: z.email()
-      })
-    }
+        email: z.email(),
+      }),
+    },
   } as const;
 
   describe('Retry Middleware', () => {
@@ -37,7 +38,7 @@ describe('Middleware', () => {
       const mockUser = {
         id: '123e4567-e89b-12d3-a456-426614174000',
         name: 'John Doe',
-        email: 'john@example.com'
+        email: 'john@example.com',
       };
 
       // First call fails, second succeeds
@@ -61,16 +62,49 @@ describe('Middleware', () => {
         middleware: [
           retryMiddleware({
             retries: 1,
-            delay: 10 // Short delay for testing
-          })
-        ]
+            delay: 10, // Short delay for testing
+          }),
+        ],
       });
 
       const result = await client.getUser({
-        id: '123e4567-e89b-12d3-a456-426614174000'
+        id: '123e4567-e89b-12d3-a456-426614174000',
       });
 
       expect(result).toEqual(mockUser);
+      expect(axiosMock.request).toHaveBeenCalledTimes(2);
+    });
+
+    it('should rerun downstream middleware for every attempt', async () => {
+      const calls: string[] = [];
+      const downstream: Middleware = async (request, next) => {
+        calls.push('downstream');
+        return next(request);
+      };
+
+      axiosMock.request
+        .mockResolvedValueOnce({
+          status: 500,
+          statusText: 'Internal Server Error',
+          headers: {},
+          data: null,
+        })
+        .mockResolvedValueOnce({
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          data: { id: 'user-1' },
+        });
+
+      const client = createClient(apiContract, {
+        axios: axiosMock,
+        validateResponse: false,
+        middleware: [retryMiddleware({ retries: 1, delay: 0 }), downstream],
+      });
+
+      await client.getUser({ id: '123e4567-e89b-12d3-a456-426614174000' });
+
+      expect(calls).toEqual(['downstream', 'downstream']);
       expect(axiosMock.request).toHaveBeenCalledTimes(2);
     });
 
@@ -79,7 +113,7 @@ describe('Middleware', () => {
         status: 404,
         statusText: 'Not Found',
         headers: {},
-        data: { error: 'Not found' }
+        data: { error: 'Not found' },
       });
 
       const client = createClient(apiContract, {
@@ -88,14 +122,16 @@ describe('Middleware', () => {
         middleware: [
           retryMiddleware({
             retries: 2,
-            delay: 10
-          })
-        ]
+            delay: 10,
+          }),
+        ],
       });
 
-      await expect(client.getUser({
-        id: '123e4567-e89b-12d3-a456-426614174000'
-      })).rejects.toThrow();
+      await expect(
+        client.getUser({
+          id: '123e4567-e89b-12d3-a456-426614174000',
+        })
+      ).rejects.toThrow();
 
       // Should only be called once (no retry for 404)
       expect(axiosMock.request).toHaveBeenCalledTimes(1);
@@ -107,7 +143,7 @@ describe('Middleware', () => {
       const mockUser = {
         id: '123e4567-e89b-12d3-a456-426614174000',
         name: 'John Doe',
-        email: 'john@example.com'
+        email: 'john@example.com',
       };
 
       axiosMock.request.mockResolvedValue({
@@ -121,19 +157,19 @@ describe('Middleware', () => {
         axios: axiosMock,
         middleware: [
           cacheMiddleware({
-            ttl: 1000 // 1 second cache
-          })
-        ]
+            ttl: 1000, // 1 second cache
+          }),
+        ],
       });
 
       // First call
       const result1 = await client.getUser({
-        id: '123e4567-e89b-12d3-a456-426614174000'
+        id: '123e4567-e89b-12d3-a456-426614174000',
       });
 
       // Second call should use cache
       const result2 = await client.getUser({
-        id: '123e4567-e89b-12d3-a456-426614174000'
+        id: '123e4567-e89b-12d3-a456-426614174000',
       });
 
       expect(result1).toEqual(mockUser);
@@ -148,7 +184,7 @@ describe('Middleware', () => {
       const mockUser = {
         id: '123e4567-e89b-12d3-a456-426614174000',
         name: 'John Doe',
-        email: 'john@example.com'
+        email: 'john@example.com',
       };
 
       axiosMock.request.mockResolvedValue({
@@ -160,18 +196,15 @@ describe('Middleware', () => {
 
       const client = createClient(apiContract, {
         axios: axiosMock,
-        middleware: [
-          cacheMiddleware({ ttl: 1000 }),
-          retryMiddleware({ retries: 1, delay: 10 })
-        ]
+        middleware: [cacheMiddleware({ ttl: 1000 }), retryMiddleware({ retries: 1, delay: 10 })],
       });
 
       const result = await client.getUser({
-        id: '123e4567-e89b-12d3-a456-426614174000'
+        id: '123e4567-e89b-12d3-a456-426614174000',
       });
 
       expect(result).toEqual(mockUser);
       expect(axiosMock.request).toHaveBeenCalledTimes(1);
-});
+    });
   });
 });

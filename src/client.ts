@@ -7,14 +7,13 @@ import {
   ResponseContext,
   ApiClient,
   EndpointMethodWithSchema,
-  InferRequestType,
   InferResponseType,
 } from './types';
 import { validateRequest, validateResponse } from './validation';
-import { separateParams, buildUrl, replacePath, shouldHaveBody } from './utils/path';
-import { createMiddlewareExecutor, MiddlewareExecutor } from './middleware';
+import { separateParams, replacePath, shouldHaveBody } from './utils/path';
+import { MiddlewareExecutor } from './middleware';
 import { AxiosAdapter } from './adapters/axios';
-import { SchemaExtractor, createSchemaExtractor } from './schema';
+import { SchemaExtractor } from './schema';
 
 /**
  * Zodsei client core implementation
@@ -23,14 +22,20 @@ export class ZodseiClient<T extends Contract> {
   private readonly contract: T;
   private readonly config: InternalClientConfig;
   private readonly middlewareExecutor: MiddlewareExecutor;
-  private adapter: AxiosAdapter | null = null;
+  private readonly adapter: AxiosAdapter;
   public readonly $schema: SchemaExtractor<T>;
 
   constructor(contract: T, config: ClientConfig) {
     this.contract = contract;
-    this.config = this.normalizeConfig(config);
-    this.middlewareExecutor = createMiddlewareExecutor(this.config.middleware);
-    this.$schema = createSchemaExtractor(contract);
+    this.config = {
+      validateRequest: config.validateRequest ?? true,
+      validateResponse: config.validateResponse ?? true,
+      middleware: config.middleware ?? [],
+      axios: config.axios,
+    };
+    this.middlewareExecutor = new MiddlewareExecutor(this.config.middleware);
+    this.adapter = new AxiosAdapter(this.config.axios);
+    this.$schema = new SchemaExtractor(contract);
 
     // Create proxy object for dynamic method calls with nested support
     return new Proxy(this, {
@@ -38,7 +43,7 @@ export class ZodseiClient<T extends Contract> {
         if (typeof prop === 'string') {
           // Check if it's a direct endpoint
           if (prop in this.contract && this.isEndpointDefinition(this.contract[prop])) {
-            return this.createEndpointMethod(prop);
+            return this.createEndpointMethod(this.contract[prop] as EndpointDefinition);
           }
 
           // Check if it's a nested contract
@@ -49,18 +54,6 @@ export class ZodseiClient<T extends Contract> {
         return Reflect.get(target as object, prop) as unknown;
       },
     }) as ZodseiClient<T> & ApiClient<T>;
-  }
-
-  /**
-   * Normalize configuration
-   */
-  private normalizeConfig(config: ClientConfig): InternalClientConfig {
-    return {
-      validateRequest: config.validateRequest ?? true,
-      validateResponse: config.validateResponse ?? true,
-      middleware: config.middleware ?? [],
-      axios: config.axios,
-    };
   }
 
   /**
@@ -88,10 +81,7 @@ export class ZodseiClient<T extends Contract> {
           if (typeof prop === 'string') {
             // Check if it's a direct endpoint in nested contract
             if (prop in nestedContract && this.isEndpointDefinition(nestedContract[prop])) {
-              return this.createEndpointMethod(
-                `${prop}`,
-                nestedContract[prop] as EndpointDefinition
-              );
+              return this.createEndpointMethod(nestedContract[prop] as EndpointDefinition);
             }
 
             // Check if it's further nested
@@ -108,9 +98,7 @@ export class ZodseiClient<T extends Contract> {
   /**
    * Create endpoint method with schema access
    */
-  private createEndpointMethod(endpointName: string, endpoint?: EndpointDefinition) {
-    const targetEndpoint = endpoint || (this.contract[endpointName] as EndpointDefinition);
-
+  private createEndpointMethod(targetEndpoint: EndpointDefinition) {
     const method = async (...args: unknown[]) => {
       // 如果有 request schema，取第一个参数；否则传 undefined
       const data = targetEndpoint.request ? args[0] : undefined;
@@ -124,12 +112,6 @@ export class ZodseiClient<T extends Contract> {
       request: targetEndpoint.request,
       response: targetEndpoint.response,
       endpoint: targetEndpoint,
-    };
-
-    // Attach type inference helpers (for development/debugging)
-    (method as EndpointMethodWithSchema<typeof targetEndpoint>).infer = {
-      request: (targetEndpoint.request ? {} : undefined) as InferRequestType<typeof targetEndpoint>,
-      response: (targetEndpoint.response ? {} : {}) as InferResponseType<typeof targetEndpoint>,
     };
 
     return method as EndpointMethodWithSchema<typeof targetEndpoint>;
@@ -149,7 +131,7 @@ export class ZodseiClient<T extends Contract> {
 
     // Execute middleware chain
     const response = await this.middlewareExecutor.execute(requestContext, (ctx) =>
-      this.executeHttpRequest(ctx)
+      this.adapter.request(ctx)
     );
 
     // Validate response data
@@ -175,57 +157,19 @@ export class ZodseiClient<T extends Contract> {
     // Replace path parameters
     const finalPath = replacePath(path, pathParams);
 
-    // Build URL (relative path; axios instance is responsible for baseURL)
-    const url =
-      method.toLowerCase() === 'get' ? buildUrl(finalPath, queryParams) : buildUrl(finalPath);
-
-    // Determine request body
-    const body = shouldHaveBody(method)
-      ? method.toLowerCase() === 'get'
-        ? undefined
-        : data
-      : undefined;
+    const usesBody = shouldHaveBody(method);
+    const isRecord = typeof data === 'object' && data !== null && !Array.isArray(data);
+    const requestData = isRecord ? queryParams : data;
 
     return {
-      url,
+      // Keep query parameters in RequestContext so Axios serializes them exactly once.
+      url: finalPath.startsWith('/') ? finalPath : `/${finalPath}`,
       method,
       headers: {},
-      body,
+      body: usesBody ? requestData : undefined,
       params: pathParams,
-      query: method.toLowerCase() === 'get' ? (queryParams as Record<string, unknown>) : undefined,
+      query: !usesBody && isRecord ? queryParams : undefined,
     };
-  }
-
-  /**
-   * Get adapter
-   */
-  private async getAdapter(): Promise<AxiosAdapter> {
-    if (!this.adapter) {
-      this.adapter = new AxiosAdapter(this.config.axios);
-    }
-    return this.adapter;
-  }
-
-  /**
-   * Execute HTTP request
-   */
-  private async executeHttpRequest(context: RequestContext): Promise<ResponseContext> {
-    const adapter = await this.getAdapter();
-    return adapter.request(context);
-  }
-
-  /**
-   * Get configuration
-   */
-  public getConfig(): Readonly<InternalClientConfig> {
-    return { ...this.config };
-  }
-
-  /**
-   * Get contract
-   */
-  public getContract(): Readonly<T> {
-    return { ...this.contract };
   }
 
   /**

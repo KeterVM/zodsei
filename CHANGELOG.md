@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [2.0.0] - 2026-08-10
+
+### Breaking
+
+- Zodsei is now ESM-only. The CommonJS build and `require` export have been removed.
+
+### Fixed
+
+- Retry attempts now execute every downstream middleware again.
+- Query parameters are preserved for bodyless methods such as `DELETE` and `HEAD`.
+- Path parameters are removed from `POST`, `PUT`, and `PATCH` request bodies.
+- Axios query parameters are serialized once through `config.params`.
+- The Vitest UI script now declares its required `@vitest/ui` dependency.
+
+### Changed
+
+- Standardized local development, scripts, installation docs, and publishing lifecycle on Bun.
+- Replaced ESLint and Prettier with Oxlint and Oxfmt across source, tests, examples, and configs.
+- Replaced tsup with tsdown for ESM, declaration, and source map builds.
+- Updated runtime, development, and peer dependencies to their latest releases, with TypeScript
+  constrained to the latest 6.x release line.
+- Removed the runtime `.infer` placeholder; use `InferRequestType` and `InferResponseType`.
+- Simplified `describeEndpoint()` to return contract data and Zod schemas without inspecting
+  private Zod internals.
+- Removed unused compatibility type aliases and the empty adapter index module.
+- Deprecated redundant validator, middleware convenience, adapter, and request helper APIs.
+- Removed the obsolete pnpm lockfile and workspace configuration; `bun.lock` is authoritative.
+
 ## [1.1.1] - 2025-11-23
 
 ### Fixed
@@ -84,7 +114,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Before:
 
     ```ts
-    const client = createClient(contract, { baseUrl, adapter: 'fetch', adapterConfig: { timeout: 10_000 } });
+    const client = createClient(contract, {
+      baseUrl,
+      adapter: 'fetch',
+      adapterConfig: { timeout: 10_000 },
+    });
     ```
 
   - Now:
@@ -176,9 +210,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Enhanced Endpoint Methods**: All endpoint methods now include schema metadata
 
   ```typescript
-  client.getUser.schema.request   // Zod request schema
-  client.getUser.schema.response  // Zod response schema
-  client.getUser.schema.endpoint  // Complete endpoint definition
+  client.getUser.schema.request; // Zod request schema
+  client.getUser.schema.response; // Zod response schema
+  client.getUser.schema.endpoint; // Complete endpoint definition
   ```
 
 - **Type Inference Helpers**: Compile-time type extraction utilities
@@ -192,9 +226,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   ```typescript
   const schema = client.$schema;
-  schema.getEndpointPaths();           // ['getUser', 'createUser', ...]
+  schema.getEndpointPaths(); // ['getUser', 'createUser', ...]
   schema.getEndpointSchemas('getUser'); // Complete schema info
-  schema.describeEndpoint('getUser');   // Documentation-friendly description
+  schema.describeEndpoint('getUser'); // Documentation-friendly description
   ```
 
 ### 🎯 Enhanced Developer Experience
@@ -241,8 +275,8 @@ const user = await client.getUser({ id: '123' });
 // user is automatically typed as z.infer<typeof contract.getUser.response>
 
 // 2. Schema access
-console.log(client.getUser.schema.request);   // Zod schema object
-console.log(client.getUser.schema.response);  // Zod schema object
+console.log(client.getUser.schema.request); // Zod schema object
+console.log(client.getUser.schema.response); // Zod schema object
 
 // 3. Type inference helpers
 type GetUserRequest = typeof client.getUser.infer.request;
@@ -329,9 +363,9 @@ const fetchClient = createClient(contract, {
   adapter: 'fetch', // 👈 This determines adapterConfig type
   adapterConfig: {
     credentials: 'include', // ✅ Valid for fetch
-    mode: 'cors',           // ✅ Valid for fetch
+    mode: 'cors', // ✅ Valid for fetch
     // auth: { username: 'user' } // ❌ TypeScript error: not valid for fetch
-  }
+  },
 });
 
 // ✅ Type-safe axios configuration
@@ -340,9 +374,9 @@ const axiosClient = createClient(contract, {
   adapter: 'axios', // 👈 This determines adapterConfig type
   adapterConfig: {
     auth: { username: 'user', password: 'pass' }, // ✅ Valid for axios
-    maxRedirects: 5,                               // ✅ Valid for axios
+    maxRedirects: 5, // ✅ Valid for axios
     // credentials: 'include' // ❌ TypeScript error: not valid for axios
-  }
+  },
 });
 ```
 
@@ -378,17 +412,17 @@ const contract = defineContract({
       path: '/auth/login',
       method: 'post',
       request: z.object({ email: z.string(), password: z.string() }),
-      response: z.object({ token: z.string() })
-    }
+      response: z.object({ token: z.string() }),
+    },
   }),
   users: defineContract({
     getById: {
       path: '/users/:id',
       method: 'get',
       request: z.object({ id: z.string() }),
-      response: UserSchema
-    }
-  })
+      response: UserSchema,
+    },
+  }),
 });
 
 // Usage with nested structure
@@ -448,14 +482,14 @@ const contract = defineContract({
 
 ```typescript
 // Old (deprecated in Zod v4)
-z.string().uuid()
-z.string().email()
-z.string().datetime()
+z.string().uuid();
+z.string().email();
+z.string().datetime();
 
 // New (Zod v4 recommended)
-z.uuidv4()
-z.email()
-z.iso.datetime()
+z.uuidv4();
+z.email();
+z.iso.datetime();
 ```
 
 ## [0.1.4] - 2025-07-27

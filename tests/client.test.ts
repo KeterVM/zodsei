@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
 import { createClient, ValidationError, HttpError } from '../src';
+import type { InferRequestType } from '../src';
 import type { AxiosInstance } from 'axios';
 
 // Mock axios instance helper
@@ -235,8 +236,9 @@ describe('ZodseiClient', () => {
       expect(result).toEqual(mockResponse);
       expect(axiosMock.request).toHaveBeenCalledWith(
         expect.objectContaining({
-          url: '/users/123e4567-e89b-12d3-a456-426614174000/posts?page=1&limit=10&search=test',
+          url: '/users/123e4567-e89b-12d3-a456-426614174000/posts',
           method: 'get',
+          params: { page: 1, limit: 10, search: 'test' },
         })
       );
     });
@@ -276,6 +278,35 @@ describe('ZodseiClient', () => {
     );
   });
 
+  it('should remove path parameters from a request body', async () => {
+    const updateContract = {
+      updateUser: {
+        path: '/users/:id',
+        method: 'patch' as const,
+        request: z.object({ id: z.string(), name: z.string() }),
+        response: z.object({ id: z.string(), name: z.string() }),
+      },
+    } as const;
+
+    axiosMock.request.mockResolvedValueOnce({
+      status: 200,
+      statusText: 'OK',
+      headers: {},
+      data: { id: 'user-1', name: 'Jane' },
+    });
+
+    const client = createClient(updateContract, { axios: axiosMock });
+    await client.updateUser({ id: 'user-1', name: 'Jane' });
+
+    expect(axiosMock.request).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '/users/user-1',
+        method: 'patch',
+        data: { name: 'Jane' },
+      })
+    );
+  });
+
   it('should make GET request with query params', async () => {
     const mockResponse = {
       users: [],
@@ -301,8 +332,9 @@ describe('ZodseiClient', () => {
     expect(result).toEqual(mockResponse);
     expect(axiosMock.request).toHaveBeenCalledWith(
       expect.objectContaining({
-        url: '/users?page=1&limit=10',
+        url: '/users',
         method: 'get',
+        params: { page: 1, limit: 10 },
       })
     );
   });
@@ -383,7 +415,7 @@ describe('ZodseiClient', () => {
     // This should not throw an error, even if UUID is invalid
     const result = await client.getUser({
       id: 'invalid-uuid',
-    } as unknown as typeof client.getUser.infer.request);
+    } as unknown as InferRequestType<typeof apiContract.getUser>);
 
     expect(result).toEqual(mockUser);
   });

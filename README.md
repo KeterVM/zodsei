@@ -53,16 +53,12 @@ Use Zodsei when:
 - 🔌 **Middleware support**: Built-in retry, caching, and custom middleware
 - 🌐 **Axios-based client**: Bring-your-own Axios instance for requests
 - 🚀 **Minimal dependencies**: Zod + Axios
-- 📦 **Modern**: ESM/CJS dual package, works in Node.js and browsers
+- 📦 **Modern**: ESM-only package for modern Node.js and browsers
 
 ## Installation
 
 ```bash
-npm install zodsei zod axios
-# or
-pnpm add zodsei zod axios
-# or
-yarn add zodsei zod axios
+bun add zodsei zod axios
 ```
 
 ## Quick Start
@@ -76,7 +72,7 @@ import { defineContract } from 'zodsei';
 const UserSchema = z.object({
   id: z.uuid(),
   name: z.string(),
-  email: z.email()
+  email: z.email(),
 });
 
 const apiContract = defineContract({
@@ -86,18 +82,18 @@ const apiContract = defineContract({
     request: z.object({
       id: z.uuid(),
     }),
-    response: UserSchema
+    response: UserSchema,
   },
-  
+
   createUser: {
     path: '/users',
     method: 'post' as const,
     request: z.object({
       name: z.string().min(1),
-      email: z.email()
+      email: z.email(),
     }),
-    response: UserSchema
-  }
+    response: UserSchema,
+  },
 });
 ```
 
@@ -120,14 +116,14 @@ const client = createClient(apiContract, {
 
 ```typescript
 // Fully type-safe API calls
-const user = await client.getUser({ 
-  id: '123e4567-e89b-12d3-a456-426614174000' 
+const user = await client.getUser({
+  id: '123e4567-e89b-12d3-a456-426614174000',
 });
 // user is automatically typed as { id: string, name: string, email: string }
 
 const newUser = await client.createUser({
   name: 'John Doe',
-  email: 'john@example.com'
+  email: 'john@example.com',
 });
 // newUser is also automatically typed
 ```
@@ -142,12 +138,13 @@ const user = await client.getUser({ id: '123e4567-e89b-12d3-a456-426614174000' }
 // `user` type is inferred from the endpoint response schema
 ```
 
-### Method-level type helpers: .infer
+### Contract type helpers
 
 ```ts
-// Dev-time type helpers derived from the endpoint definition
-type GetUserRequest = typeof client.getUser.infer.request;
-type GetUserResponse = typeof client.getUser.infer.response;
+import type { InferRequestType, InferResponseType } from 'zodsei';
+
+type GetUserRequest = InferRequestType<typeof apiContract.getUser>;
+type GetUserResponse = InferResponseType<typeof apiContract.getUser>;
 ```
 
 ### Method-level schemas: .schema
@@ -164,13 +161,13 @@ const resSchema = client.getUser.schema.response;
 // Explore the contract at runtime
 const endpointPaths = client.$schema.getEndpointPaths();
 const info = client.$schema.describeEndpoint('getUser');
-// info: { path, method, requestSchema, responseSchema, requestType, responseType }
+// info: { path, method, requestSchema, responseSchema }
 ```
 
 ### Nested contracts
 
 ```ts
-type LoginRequest = typeof client.auth.login.infer.request;
+type LoginRequest = InferRequestType<typeof contract.auth.login>;
 const getByIdSchemas = client.users.getById.schema;
 ```
 
@@ -198,9 +195,9 @@ const contract = defineContract({
   endpointName: {
     path: '/api/path/:param',
     method: 'post',
-    request: z.object({ /* request schema */ }),
-    response: z.object({ /* response schema */ })
-  }
+    request: z.object({/* request schema */}),
+    response: z.object({/* response schema */}),
+  },
 });
 ```
 
@@ -215,24 +212,24 @@ const contract = defineContract({
       path: '/auth/login',
       method: 'post',
       request: z.object({ email: z.string(), password: z.string() }),
-      response: z.object({ token: z.string() })
+      response: z.object({ token: z.string() }),
     },
     logout: {
       path: '/auth/logout',
       method: 'post',
       request: z.object({}),
-      response: z.object({ success: z.boolean() })
-    }
+      response: z.object({ success: z.boolean() }),
+    },
   }),
-  
+
   users: defineContract({
     getById: {
       path: '/users/:id',
       method: 'get',
       request: z.object({ id: z.string() }),
-      response: UserSchema
-    }
-  })
+      response: UserSchema,
+    },
+  }),
 });
 
 // Usage with nested structure
@@ -244,10 +241,10 @@ const user = await client.users.getById({ id: '123' });
 
 ```typescript
 interface ClientConfig {
-  axios: AxiosInstance;               // Your Axios instance (required)
-  validateRequest?: boolean;          // Enable request validation (default: true)
-  validateResponse?: boolean;         // Enable response validation (default: true)
-  middleware?: Middleware[];          // Custom middleware
+  axios: AxiosInstance; // Your Axios instance (required)
+  validateRequest?: boolean; // Enable request validation (default: true)
+  validateResponse?: boolean; // Enable response validation (default: true)
+  middleware?: Middleware[]; // Custom middleware
 }
 ```
 
@@ -269,9 +266,9 @@ const client = createClient(contract, {
       backoff: 'exponential',
       onRetry: (attempt, error) => {
         console.log(`Retry attempt ${attempt}:`, error.message);
-      }
-    })
-  ]
+      },
+    }),
+  ],
 });
 ```
 
@@ -285,8 +282,8 @@ const client = createClient(contract, {
   middleware: [
     cacheMiddleware({
       ttl: 60000, // Cache for 1 minute
-    })
-  ]
+    }),
+  ],
 });
 ```
 
@@ -302,25 +299,20 @@ const loggingMiddleware = async (request, next) => {
 
 const client = createClient(contract, {
   baseUrl: 'https://api.example.com',
-  middleware: [loggingMiddleware]
+  middleware: [loggingMiddleware],
 });
 ```
 
 ### HTTP Client
 
-Zodsei uses Axios under the hood. You must provide an `AxiosInstance` when creating the client. Use middleware for cross-cutting concerns (auth, logging, retries, caching).
+Zodsei uses Axios under the hood. You must provide an `AxiosInstance` when creating the client. Interceptors configured on that instance continue to run normally; Zodsei does not register or manage them.
 
 ### Error Handling
 
 Zodsei provides specific error types for different scenarios:
 
 ```typescript
-import { 
-  ValidationError, 
-  HttpError, 
-  NetworkError, 
-  TimeoutError 
-} from 'zodsei';
+import { ValidationError, HttpError, NetworkError, TimeoutError } from 'zodsei';
 
 try {
   const user = await client.getUser({ id: 'invalid-uuid' });
@@ -339,27 +331,32 @@ try {
 
 ## Advanced
 
-### Notes
+### Middleware vs Axios Interceptors
 
-- Provide your own Axios instance to integrate global config, interceptors, and shared headers.
-- For retries, caching, auth headers, prefer Zodsei middleware to keep concerns consistent across transports.
+Middleware and Axios interceptors run at different layers:
 
-### Middleware (Recommended)
+|                         | Zodsei middleware                                      | Axios interceptor                                                             |
+| ----------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| Input                   | `RequestContext` / `ResponseContext`                   | `AxiosRequestConfig` / `AxiosResponse`                                        |
+| Scope                   | One Zodsei client                                      | Every consumer of the Axios instance                                          |
+| Best for                | Caching, retries, client-specific auth, logging, mocks | Axios configuration, shared headers, 401 token refresh, Axios-specific errors |
+| Can skip Axios entirely | Yes, for example on a cache hit                        | Not directly; it remains inside the Axios pipeline                            |
 
-Use middleware to implement cross-cutting concerns (auth, logging, retries, error handling):
+The execution order is:
 
-```typescript
-const authMiddleware = async (req, next) => {
-  const token = localStorage.getItem('token');
-  if (token) req.headers.Authorization = `Bearer ${token}`;
-  return next(req);
-};
-
-const client = createClient(contract, {
-  baseUrl: 'https://api.example.com',
-  middleware: [authMiddleware]
-});
+```text
+request validation
+→ Zodsei middleware
+  → Axios request interceptor
+    → HTTP request
+  ← Axios response interceptor
+← Zodsei middleware
+← response validation
 ```
+
+Use middleware when behavior belongs to one contract client or may short-circuit the request. Use an interceptor when behavior depends on Axios internals or must be shared by every consumer of the Axios instance. Simple authorization headers can use either layer; 401 refresh flows usually belong in an Axios interceptor.
+
+Do not configure retries or caching in both layers. Doing so can duplicate requests, logs, and side effects.
 
 ### Path Parameters
 
@@ -370,16 +367,16 @@ const contract = defineContract({
     method: 'get' as const,
     request: z.object({
       userId: z.string().uuid(),
-      postId: z.string().uuid()
+      postId: z.string().uuid(),
     }),
-    response: PostSchema
-  }
+    response: PostSchema,
+  },
 });
 
 // Usage
 const post = await client.getUserPosts({
   userId: 'user-uuid',
-  postId: 'post-uuid'
+  postId: 'post-uuid',
 });
 ```
 
@@ -395,20 +392,20 @@ const contract = defineContract({
     request: z.object({
       q: z.string(),
       page: z.number().optional(),
-      limit: z.number().optional()
+      limit: z.number().optional(),
     }),
     response: z.object({
       users: z.array(UserSchema),
-      total: z.number()
-    })
-  }
+      total: z.number(),
+    }),
+  },
 });
 
 // Usage - generates: GET /users?q=john&page=1&limit=10
 const results = await client.searchUsers({
   q: 'john',
   page: 1,
-  limit: 10
+  limit: 10,
 });
 ```
 
@@ -422,19 +419,19 @@ const contract = defineContract({
     path: '/users/:id',
     method: 'put' as const,
     request: z.object({
-      id: z.string().uuid(),      // Path parameter
+      id: z.string().uuid(), // Path parameter
       name: z.string().optional(), // Body field
-      email: z.string().email().optional() // Body field
+      email: z.string().email().optional(), // Body field
     }),
-    response: UserSchema
-  }
+    response: UserSchema,
+  },
 });
 
 // Usage
 const updated = await client.updateUser({
   id: 'user-uuid',
   name: 'New Name',
-  email: 'new@example.com'
+  email: 'new@example.com',
 });
 ```
 
@@ -443,5 +440,13 @@ const updated = await client.updateUser({
 MIT
 
 ## Contributing
+
+Development uses Bun 1.3.14 or newer, with Oxlint and Oxfmt for linting and formatting:
+
+```bash
+bun install --frozen-lockfile
+bun run check
+bun run build
+```
 
 Contributions are welcome! Please read our contributing guide and submit pull requests to our repository.

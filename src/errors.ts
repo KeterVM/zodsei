@@ -63,7 +63,7 @@ export class NetworkError extends ZodseiError {
   }
 }
 
-// Configuration error
+/** @deprecated Configuration is validated by createClient and Axios. */
 export class ConfigError extends ZodseiError {
   constructor(message: string) {
     super(message, 'CONFIG_ERROR');

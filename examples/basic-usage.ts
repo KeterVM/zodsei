@@ -166,7 +166,7 @@ async function example() {
 
 // Run example
 if (require.main === module) {
-  example();
+  void example();
 }
 
 export { apiContract, client };

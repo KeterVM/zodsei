@@ -17,18 +17,16 @@ export class MiddlewareExecutor {
       return finalHandler(request);
     }
 
-    let index = 0;
-
-    const next = async (req: RequestContext): Promise<ResponseContext> => {
+    const dispatch = async (index: number, req: RequestContext): Promise<ResponseContext> => {
       if (index >= this.middleware.length) {
         return finalHandler(req);
       }
 
-      const middleware = this.middleware[index++];
-      return middleware(req, next);
+      const middleware = this.middleware[index];
+      return middleware(req, (nextRequest) => dispatch(index + 1, nextRequest));
     };
 
-    return next(request);
+    return dispatch(0, request);
   }
 
   // Add middleware
@@ -42,12 +40,12 @@ export class MiddlewareExecutor {
   }
 }
 
-// Create middleware executor
+/** @deprecated Middleware execution is managed by createClient. */
 export function createMiddlewareExecutor(middleware: Middleware[] = []): MiddlewareExecutor {
   return new MiddlewareExecutor(middleware);
 }
 
-// Compose multiple middleware
+/** @deprecated Pass middleware directly through ClientConfig.middleware. */
 export function composeMiddleware(...middleware: Middleware[]): Middleware {
   return async (request, next) => {
     const executor = new MiddlewareExecutor(middleware);

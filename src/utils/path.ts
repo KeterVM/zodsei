@@ -2,6 +2,31 @@
  * Path handling utility functions
  */
 
+function serializeQueryValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'bigint') {
+    return value.toString();
+  }
+  if (typeof value === 'boolean') {
+    return value ? 'true' : 'false';
+  }
+  if (typeof value === 'symbol') {
+    return value.description ?? '';
+  }
+  if (typeof value === 'function') {
+    return value.name;
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  return JSON.stringify(value) ?? '';
+}
+
 // Extract path parameter names
 export function extractPathParamNames(path: string): string[] {
   const matches = path.match(/:([^/]+)/g);
@@ -26,9 +51,9 @@ export function buildQueryString(params: Record<string, unknown>): string {
   for (const [key, value] of Object.entries(params)) {
     if (value !== undefined && value !== null) {
       if (Array.isArray(value)) {
-        value.forEach((item) => searchParams.append(key, String(item)));
+        value.forEach((item) => searchParams.append(key, serializeQueryValue(item)));
       } else {
-        searchParams.append(key, String(value));
+        searchParams.append(key, serializeQueryValue(value));
       }
     }
   }
@@ -71,5 +96,5 @@ export function separateParams(
 
 // Check if request body is needed
 export function shouldHaveBody(method: string): boolean {
-  return !['GET', 'HEAD', 'DELETE'].includes(method.toUpperCase());
+  return ['POST', 'PUT', 'PATCH'].includes(method.toUpperCase());
 }

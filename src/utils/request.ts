@@ -6,7 +6,7 @@
  * These functions are kept for backward compatibility and potential future use.
  */
 
-// Simple header merging utility
+/** @deprecated Merge headers directly with object spread syntax. */
 export function mergeHeaders(
   defaultHeaders: Record<string, string>,
   requestHeaders?: Record<string, string>
