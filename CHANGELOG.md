@@ -501,3 +501,6 @@ z.iso.datetime();
 - Middleware system (retry, cache)
 - Full TypeScript support
 - Comprehensive test suite
+
+[Unreleased]: https://github.com/KeterVM/zodsei/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/KeterVM/zodsei/releases/tag/v2.0.0
