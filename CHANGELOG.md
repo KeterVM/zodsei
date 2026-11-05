@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-11-06
+
 ### Breaking
 
 - Request data is encoded with `z.encode` instead of parsed, so codecs send their wire form.
@@ -563,5 +565,6 @@ z.iso.datetime();
 - Full TypeScript support
 - Comprehensive test suite
 
-[Unreleased]: https://github.com/KeterVM/zodsei/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/KeterVM/zodsei/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/KeterVM/zodsei/releases/tag/v3.0.0
 [2.0.0]: https://github.com/KeterVM/zodsei/releases/tag/v2.0.0
