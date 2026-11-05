@@ -24,6 +24,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (`unknown` instead of `string`).
 - A colon after an identifier character is no longer a parameter start, so `/users:batchGet`
   keeps its literal `:batchGet`.
+- A cancelled request rejects with the new `CanceledError` instead of `NetworkError`.
+- Only `ETIMEDOUT` maps to `TimeoutError`. Zodsei sets `transitional.clarifyTimeoutError: true` on
+  each request, so Axios interceptors now see `ETIMEDOUT` for timeouts, and a browser abort
+  (`ECONNABORTED`) becomes a `NetworkError` instead of a `TimeoutError`. Tools that key off
+  `ECONNABORTED`, such as axios-retry's default condition, now see timeouts as `ETIMEDOUT`.
+- The default `cacheMiddleware` key includes request headers, so calls with different per-call
+  headers no longer share an entry.
+- Every response Axios resolves is accepted. A custom `validateStatus` that lets a 4xx through no
+  longer gets overridden by an `HttpError`; the body goes to response validation instead.
+
+### Added
+
+- Per-call options: endpoint methods take `{ signal, timeout, headers }` after the request data, or
+  as the only argument when the endpoint has no request schema. `RequestContext` carries `signal`
+  and `timeout` for middleware.
+- `CanceledError`, exported from the package root.
 
 ### Fixed
 

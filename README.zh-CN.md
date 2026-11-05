@@ -314,17 +314,49 @@ const client = createClient(contract, {
 
 Zodsei 统一使用 Axios。创建客户端时你需要提供一个 `AxiosInstance`。配置在该实例上的拦截器会正常执行；Zodsei 本身不注册或管理拦截器。
 
+Axios resolve 的响应都会被接受，所以实例上自定义的 `validateStatus` 决定哪些状态码会变成
+`HttpError`。Zodsei 会在每个请求上设置 `transitional.clarifyTimeoutError: true`，让超时
+（`ETIMEDOUT`）不会和浏览器中止（`ECONNABORTED`）混淆。你的其他 `transitional` 设置会保留。
+
+### 单次调用参数
+
+参数放在请求数据之后；端点没有 request schema 时，参数作为唯一的实参传入。中间件也能在请求上下文里
+读到这些参数。
+
+```typescript
+const controller = new AbortController();
+
+await client.auth.login({ email, password }, { signal: controller.signal });
+await client.health({ timeout: 2000 });
+await client.getUser({ id }, { headers: { 'X-Request-Id': requestId } });
+
+// 例如登出时
+controller.abort(); // 在途请求以 CanceledError 拒绝
+```
+
+想得到 `TimeoutError` 时请用 `timeout`，不要用 `signal: AbortSignal.timeout(ms)`：signal 被中止时一律
+以 `CanceledError` 拒绝；已经中止的 signal 会在任何中间件运行前就拒绝。重试的等待间隔也会在 signal
+中止时立即结束。
+
+| 参数      | 作用                                         |
+| --------- | -------------------------------------------- |
+| `signal`  | 本次调用的 `AbortSignal`                     |
+| `timeout` | 毫秒；覆盖 Axios 实例的超时                  |
+| `headers` | 合并在 Zodsei 设置的请求头之上，只作用于本次 |
+
 ### 错误处理
 
 Zodsei 为不同场景提供了特定错误类型：
 
 ```typescript
-import { ValidationError, HttpError, NetworkError, TimeoutError } from 'zodsei';
+import { ValidationError, HttpError, NetworkError, TimeoutError, CanceledError } from 'zodsei';
 
 try {
   const user = await client.getUser({ id: 'invalid-uuid' });
 } catch (error) {
-  if (error instanceof ValidationError) {
+  if (error instanceof CanceledError) {
+    return; // 主动取消，不需要提示
+  } else if (error instanceof ValidationError) {
     console.log('Validation failed:', error.issues);
   } else if (error instanceof HttpError) {
     console.log('HTTP error:', error.status, error.message);

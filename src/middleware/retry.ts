@@ -1,6 +1,6 @@
-import { isAxiosError, isCancel } from 'axios';
+import { isAxiosError } from 'axios';
 import type { HttpMethod, Middleware, RequestContext } from '../types';
-import { HttpError, NetworkError, TimeoutError } from '../errors';
+import { canceledBy, HttpError, NetworkError, TimeoutError } from '../errors';
 
 /**
  * Retry middleware configuration
@@ -34,11 +34,7 @@ function defaultRetryCondition(error: Error, request: RequestContext): boolean {
   }
   // Errors thrown by interceptors or user code are wrapped as NetworkError too, but only
   // transport failures from axios itself are worth repeating.
-  return (
-    error instanceof NetworkError &&
-    isAxiosError(error.originalError) &&
-    !isCancel(error.originalError)
-  );
+  return error instanceof NetworkError && isAxiosError(error.originalError);
 }
 
 // Calculate delay time
@@ -57,8 +53,22 @@ function calculateDelay(
 }
 
 // Delay function
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function delay(ms: number, signal: AbortSignal | undefined): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(canceledBy(signal));
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(canceledBy(signal!));
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
 }
 
 /**
@@ -85,7 +95,7 @@ export function retryMiddleware(config: RetryConfig): Middleware {
         }
 
         onRetry?.(attempt + 1, error);
-        await delay(calculateDelay(attempt, baseDelay, backoff));
+        await delay(calculateDelay(attempt, baseDelay, backoff), request.signal);
       }
     }
   };

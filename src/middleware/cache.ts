@@ -81,11 +81,16 @@ export class MemoryCacheStorage implements CacheStorage {
 
 // Default cache key generator
 function defaultKeyGenerator(request: RequestContext): string {
-  const { url, method, body, query } = request;
+  const { url, method, body, query, headers } = request;
   const parts = [method.toUpperCase(), url];
 
   if (query && Object.keys(query).length > 0) {
     parts.push(JSON.stringify(query));
+  }
+
+  // Per-call headers such as Authorization change who the response belongs to.
+  if (Object.keys(headers).length > 0) {
+    parts.push(JSON.stringify(headers));
   }
 
   if (body) {

@@ -4,12 +4,14 @@ import {
   ClientConfig,
   InternalClientConfig,
   RequestContext,
+  RequestOptions,
   ResponseContext,
   ApiClient,
   EndpointMethodWithSchema,
   InferResponseType,
 } from './types';
 import { validateRequest, validateResponse } from './validation';
+import { canceledBy } from './errors';
 import { separateParams, replacePath, shouldHaveBody, isNativeBody } from './utils/path';
 import { MiddlewareExecutor } from './middleware';
 import { AxiosAdapter } from './adapters/axios';
@@ -100,11 +102,12 @@ export class ZodseiClient<T extends Contract> {
    */
   private createEndpointMethod(targetEndpoint: EndpointDefinition) {
     const method = async (...args: unknown[]) => {
-      // 如果有 request schema，取第一个参数；否则传 undefined
-      const data = targetEndpoint.request ? args[0] : undefined;
-      return this.executeEndpoint(targetEndpoint, data) as Promise<
-        InferResponseType<typeof targetEndpoint>
-      >;
+      const [data, options] = targetEndpoint.request ? args : [undefined, args[0]];
+      return this.executeEndpoint(
+        targetEndpoint,
+        data,
+        options as RequestOptions | undefined
+      ) as Promise<InferResponseType<typeof targetEndpoint>>;
     };
 
     // Attach schema information to the method
@@ -120,14 +123,22 @@ export class ZodseiClient<T extends Contract> {
   /**
    * Execute endpoint request
    */
-  private async executeEndpoint(endpoint: EndpointDefinition, data: unknown): Promise<unknown> {
+  private async executeEndpoint(
+    endpoint: EndpointDefinition,
+    data: unknown,
+    options: RequestOptions | undefined
+  ): Promise<unknown> {
+    if (options?.signal?.aborted) {
+      throw canceledBy(options.signal);
+    }
+
     // Validate request data
     const validatedData = this.config.validateRequest
       ? validateRequest(endpoint.request, data)
       : data;
 
     // Build request context
-    const requestContext = this.buildRequestContext(endpoint, validatedData);
+    const requestContext = this.buildRequestContext(endpoint, validatedData, options);
 
     // Execute middleware chain
     const response = await this.middlewareExecutor.execute(requestContext, (ctx) =>
@@ -145,7 +156,11 @@ export class ZodseiClient<T extends Contract> {
   /**
    * Build request context
    */
-  private buildRequestContext(endpoint: EndpointDefinition, data: unknown): RequestContext {
+  private buildRequestContext(
+    endpoint: EndpointDefinition,
+    data: unknown,
+    options: RequestOptions | undefined
+  ): RequestContext {
     const { path, method } = endpoint;
 
     const fields =
@@ -162,13 +177,17 @@ export class ZodseiClient<T extends Contract> {
       // Keep query parameters in RequestContext so Axios serializes them exactly once.
       url: finalPath.startsWith('/') ? finalPath : `/${finalPath}`,
       method,
-      headers:
-        body === undefined || isNativeBody(body) ? {} : { 'Content-Type': 'application/json' },
+      headers: {
+        ...(body === undefined || isNativeBody(body) ? {} : { 'Content-Type': 'application/json' }),
+        ...options?.headers,
+      },
       body,
       params: Object.fromEntries(
         Object.entries(pathParams).map(([key, value]) => [key, String(value)])
       ),
       query: !usesBody && fields ? queryParams : undefined,
+      signal: options?.signal,
+      timeout: options?.timeout,
     };
   }
 

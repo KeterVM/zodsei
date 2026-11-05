@@ -78,6 +78,17 @@ export interface RequestContext {
   body?: unknown;
   params?: Record<string, string>;
   query?: Record<string, unknown>;
+  signal?: AbortSignal;
+  timeout?: number;
+}
+
+// Per-call options, passed after the request data (or alone when the endpoint has none)
+export interface RequestOptions {
+  signal?: AbortSignal;
+  /** Milliseconds; overrides the axios instance timeout for this call. */
+  timeout?: number;
+  /** Merged over the client's headers for this call. */
+  headers?: Record<string, string>;
 }
 
 // Response context
@@ -100,7 +111,9 @@ export type InferResponseType<T extends EndpointDefinition> = T['response'] exte
 // Enhanced endpoint method with schema access
 export interface EndpointMethodWithSchema<T extends EndpointDefinition> {
   (
-    ...args: T['request'] extends z.ZodType ? [data: InferRequestType<T>] : []
+    ...args: T['request'] extends z.ZodType
+      ? [data: InferRequestType<T>, options?: RequestOptions]
+      : [options?: RequestOptions]
   ): Promise<InferResponseType<T>>;
   schema: {
     request: T['request'];

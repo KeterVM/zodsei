@@ -312,17 +312,50 @@ const client = createClient(contract, {
 
 Zodsei uses Axios under the hood. You must provide an `AxiosInstance` when creating the client. Interceptors configured on that instance continue to run normally; Zodsei does not register or manage them.
 
+Any response Axios resolves is accepted, so a custom `validateStatus` on the instance decides which
+statuses become an `HttpError`. Zodsei sets `transitional.clarifyTimeoutError: true` on each
+request so a timeout (`ETIMEDOUT`) is never confused with a browser abort (`ECONNABORTED`). Your
+other `transitional` settings are kept.
+
+### Per-call options
+
+Pass options after the request data, or as the only argument when the endpoint has no request
+schema. They are also visible to middleware on the request context.
+
+```typescript
+const controller = new AbortController();
+
+await client.auth.login({ email, password }, { signal: controller.signal });
+await client.health({ timeout: 2000 });
+await client.getUser({ id }, { headers: { 'X-Request-Id': requestId } });
+
+// e.g. on logout
+controller.abort(); // the pending call rejects with CanceledError
+```
+
+Use `timeout` rather than `signal: AbortSignal.timeout(ms)` when you want a `TimeoutError`; an
+aborted signal always rejects with `CanceledError`, and an already-aborted signal rejects before
+any middleware runs. Retry delays end early when the signal aborts.
+
+| Option    | Effect                                                    |
+| --------- | --------------------------------------------------------- |
+| `signal`  | `AbortSignal` for this call                               |
+| `timeout` | Milliseconds; overrides the Axios instance timeout        |
+| `headers` | Merged over the headers Zodsei sets, for this call only   |
+
 ### Error Handling
 
 Zodsei provides specific error types for different scenarios:
 
 ```typescript
-import { ValidationError, HttpError, NetworkError, TimeoutError } from 'zodsei';
+import { ValidationError, HttpError, NetworkError, TimeoutError, CanceledError } from 'zodsei';
 
 try {
   const user = await client.getUser({ id: 'invalid-uuid' });
 } catch (error) {
-  if (error instanceof ValidationError) {
+  if (error instanceof CanceledError) {
+    return; // aborted on purpose, nothing to show
+  } else if (error instanceof ValidationError) {
     console.log('Validation failed:', error.issues);
   } else if (error instanceof HttpError) {
     console.log('HTTP error:', error.status, error.message);

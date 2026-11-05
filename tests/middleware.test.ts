@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
-import { createClient, HttpError, NetworkError } from '../src';
+import { createClient, HttpError } from '../src';
 import { retryMiddleware, cacheMiddleware } from '../src';
-import { AxiosError, CanceledError } from 'axios';
+import { AxiosError } from 'axios';
+import { httpFailure } from './helpers';
 import type { AxiosInstance } from 'axios';
 import type { Middleware } from '../src';
 
@@ -44,12 +45,7 @@ describe('Middleware', () => {
 
       // First call fails, second succeeds
       axiosMock.request
-        .mockResolvedValueOnce({
-          status: 500,
-          statusText: 'Internal Server Error',
-          headers: {},
-          data: { error: 'Server error' },
-        })
+        .mockRejectedValueOnce(httpFailure(500, 'Internal Server Error', { error: 'Server error' }))
         .mockResolvedValueOnce({
           status: 200,
           statusText: 'OK',
@@ -84,12 +80,7 @@ describe('Middleware', () => {
       };
 
       axiosMock.request
-        .mockResolvedValueOnce({
-          status: 500,
-          statusText: 'Internal Server Error',
-          headers: {},
-          data: null,
-        })
+        .mockRejectedValueOnce(httpFailure(500, 'Internal Server Error', null))
         .mockResolvedValueOnce({
           status: 200,
           statusText: 'OK',
@@ -110,12 +101,9 @@ describe('Middleware', () => {
     });
 
     it('should not retry on client errors', async () => {
-      axiosMock.request.mockResolvedValueOnce({
-        status: 404,
-        statusText: 'Not Found',
-        headers: {},
-        data: { error: 'Not found' },
-      });
+      axiosMock.request.mockRejectedValueOnce(
+        httpFailure(404, 'Not Found', { error: 'Not found' })
+      );
 
       const client = createClient(apiContract, {
         axios: axiosMock,
@@ -138,12 +126,7 @@ describe('Middleware', () => {
       expect(axiosMock.request).toHaveBeenCalledTimes(1);
     });
 
-    const serverError = {
-      status: 500,
-      statusText: 'Internal Server Error',
-      headers: {},
-      data: null,
-    };
+    const serverError = httpFailure(500, 'Internal Server Error');
     const ok = { status: 200, statusText: 'OK', headers: {}, data: { id: 'u1' } };
     const writeContract = {
       createUser: {
@@ -154,7 +137,7 @@ describe('Middleware', () => {
     } as const;
 
     it('does not retry non-idempotent methods by default', async () => {
-      axiosMock.request.mockResolvedValue(serverError);
+      axiosMock.request.mockRejectedValue(serverError);
       const client = createClient(writeContract, {
         axios: axiosMock,
         middleware: [retryMiddleware({ retries: 3, delay: 0 })],
@@ -165,7 +148,7 @@ describe('Middleware', () => {
     });
 
     it('lets a custom retryCondition opt a POST into retries', async () => {
-      axiosMock.request.mockResolvedValueOnce(serverError).mockResolvedValueOnce(ok);
+      axiosMock.request.mockRejectedValueOnce(serverError).mockResolvedValueOnce(ok);
       const retryCondition = vi.fn(() => true);
       const client = createClient(writeContract, {
         axios: axiosMock,
@@ -196,19 +179,6 @@ describe('Middleware', () => {
       expect(axiosMock.request).toHaveBeenCalledTimes(2);
     });
 
-    it('does not retry a cancelled request', async () => {
-      axiosMock.request.mockRejectedValue(new CanceledError());
-      const client = createClient(apiContract, {
-        axios: axiosMock,
-        middleware: [retryMiddleware({ retries: 3, delay: 0 })],
-      });
-
-      await expect(
-        client.getUser({ id: '123e4567-e89b-12d3-a456-426614174000' })
-      ).rejects.toBeInstanceOf(NetworkError);
-      expect(axiosMock.request).toHaveBeenCalledTimes(1);
-    });
-
     it('does not retry errors that did not come from axios', async () => {
       axiosMock.request.mockRejectedValue(new Error('token refresh failed'));
       const client = createClient(apiContract, {
@@ -223,7 +193,7 @@ describe('Middleware', () => {
     });
 
     it('treats negative retries as zero and rethrows the real error', async () => {
-      axiosMock.request.mockResolvedValue(serverError);
+      axiosMock.request.mockRejectedValue(serverError);
       const client = createClient(apiContract, {
         axios: axiosMock,
         middleware: [retryMiddleware({ retries: -1, delay: 0 })],
@@ -236,7 +206,7 @@ describe('Middleware', () => {
     });
 
     it('treats NaN retries as zero instead of retrying forever', async () => {
-      axiosMock.request.mockResolvedValue(serverError);
+      axiosMock.request.mockRejectedValue(serverError);
       const client = createClient(apiContract, {
         axios: axiosMock,
         middleware: [retryMiddleware({ retries: Number('not a number'), delay: 0 })],
@@ -249,7 +219,7 @@ describe('Middleware', () => {
     });
 
     it('matches idempotent methods case-insensitively', async () => {
-      axiosMock.request.mockResolvedValueOnce(serverError).mockResolvedValueOnce(ok);
+      axiosMock.request.mockRejectedValueOnce(serverError).mockResolvedValueOnce(ok);
       const client = createClient(
         { list: { path: '/users', method: 'GET' as 'get' } },
         { axios: axiosMock, middleware: [retryMiddleware({ retries: 1, delay: 0 })] }

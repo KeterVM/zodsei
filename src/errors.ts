@@ -63,6 +63,19 @@ export class NetworkError extends ZodseiError {
   }
 }
 
+// The request was cancelled through its AbortSignal or an axios CancelToken.
+export class CanceledError extends ZodseiError {
+  constructor(public readonly originalError: Error) {
+    super('Request canceled', 'CANCELED');
+    this.name = 'CanceledError';
+  }
+}
+
+export function canceledBy(signal: AbortSignal): CanceledError {
+  const reason: unknown = signal.reason;
+  return new CanceledError(reason instanceof Error ? reason : new Error('Request canceled'));
+}
+
 /** @deprecated Configuration is validated by createClient and Axios. */
 export class ConfigError extends ZodseiError {
   constructor(message: string) {

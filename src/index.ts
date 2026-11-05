@@ -20,6 +20,7 @@ export type {
   InferResponseType,
   HttpMethod,
   RequestContext,
+  RequestOptions,
   ResponseContext,
   Middleware,
 } from './types';
@@ -30,6 +31,7 @@ export {
   ValidationError,
   HttpError,
   NetworkError,
+  CanceledError,
   ConfigError,
   TimeoutError,
 } from './errors';

@@ -1,7 +1,33 @@
 import type { RequestContext, ResponseContext } from '../types';
-import { HttpError, NetworkError, TimeoutError } from '../errors';
-import type { AxiosInstance, AxiosRequestConfig } from 'axios';
-import { isAxiosError } from 'axios';
+import { CanceledError, HttpError, NetworkError, TimeoutError } from '../errors';
+import type { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { AxiosError, isAxiosError, isCancel } from 'axios';
+
+function toZodseiError(error: unknown): Error {
+  if (isCancel(error)) {
+    return new CanceledError(error as Error);
+  }
+  if (!isAxiosError(error)) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return new NetworkError(
+      `Axios request failed: ${message}`,
+      error instanceof Error ? error : Object.assign(new Error(message), { cause: error })
+    );
+  }
+  if (error.code === AxiosError.ETIMEDOUT) {
+    return new TimeoutError(error.config?.timeout ?? 0);
+  }
+  if (error.response) {
+    return new HttpError(
+      `HTTP ${error.response.status}: ${error.response.statusText}`,
+      error.response.status,
+      error.response.statusText,
+      error.response.data
+    );
+  }
+  const prefix = error.request ? 'Network request failed' : 'Axios request failed';
+  return new NetworkError(`${prefix}: ${error.message}`, error);
+}
 
 /**
  * Axios HTTP adapter
@@ -18,77 +44,25 @@ export class AxiosAdapter {
   // Zodsei does not register or manage them.
 
   async request(context: RequestContext): Promise<ResponseContext> {
+    let response: AxiosResponse;
     try {
-      const axiosConfig = this.createAxiosConfig(context);
-
-      const response = await this.axios.request(axiosConfig);
-
-      const headers: Record<string, string> = (() => {
-        const rh = (response.headers ?? {}) as Record<string, unknown>;
-        if (!rh) return {};
-        try {
-          return Object.fromEntries(
-            Object.entries(rh).map(([k, v]) => [k, typeof v === 'string' ? v : String(v)])
-          );
-        } catch {
-          return {};
-        }
-      })();
-
-      const responseContext: ResponseContext = {
-        status: response.status,
-        statusText: response.statusText,
-        headers,
-        data: response.data,
-      };
-
-      // Check HTTP status
-      if (response.status >= 400) {
-        throw new HttpError(
-          `HTTP ${response.status}: ${response.statusText}`,
-          response.status,
-          response.statusText,
-          response.data
-        );
-      }
-
-      return responseContext;
+      response = await this.axios.request(this.createAxiosConfig(context));
     } catch (error: unknown) {
-      if (error instanceof HttpError) {
-        throw error;
-      }
-
-      // Handle Axios errors
-      if (isAxiosError(error)) {
-        if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
-          const to = typeof error.config?.timeout === 'number' ? error.config.timeout : 0;
-          throw new TimeoutError(to || 0);
-        }
-
-        if (error.response) {
-          // Server responded with error status code
-          throw new HttpError(
-            `HTTP ${error.response.status}: ${error.response.statusText}`,
-            error.response.status,
-            error.response.statusText,
-            error.response.data
-          );
-        } else if (error.request) {
-          // Request was made but no response received
-          const message = typeof error.message === 'string' ? error.message : 'Request failed';
-          throw new NetworkError(`Network request failed: ${message}`, error as Error);
-        }
-
-        const message = typeof error.message === 'string' ? error.message : 'Axios error';
-        throw new NetworkError(`Axios request failed: ${message}`, error as Error);
-      }
-
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      throw new NetworkError(
-        `Axios request failed: ${message}`,
-        (error as Error) ?? new Error(String(error))
-      );
+      throw toZodseiError(error);
     }
+
+    // axios has already applied validateStatus, so any response that resolves was accepted.
+    return {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(
+        Object.entries(response.headers ?? {}).map(([k, v]) => [
+          k,
+          typeof v === 'string' ? v : String(v),
+        ])
+      ),
+      data: response.data,
+    };
   }
 
   private createAxiosConfig(context: RequestContext): AxiosRequestConfig {
@@ -96,7 +70,16 @@ export class AxiosAdapter {
       url: context.url,
       method: context.method.toLowerCase() as AxiosRequestConfig['method'],
       headers: context.headers,
+      // Without this axios reports timeouts as ECONNABORTED, the same code as a browser abort.
+      transitional: { clarifyTimeoutError: true },
     };
+
+    if (context.signal) {
+      config.signal = context.signal;
+    }
+    if (context.timeout !== undefined) {
+      config.timeout = context.timeout;
+    }
 
     // Add request body
     if (context.body !== undefined) {

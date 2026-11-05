@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createClient, ValidationError, HttpError } from '../src';
 import type { InferRequestType } from '../src';
 import type { AxiosInstance } from 'axios';
+import { httpFailure } from './helpers';
 
 // Mock axios instance helper
 function createAxiosMock(baseURL = 'https://api.example.com') {
@@ -372,12 +373,9 @@ describe('ZodseiClient', () => {
   });
 
   it('should handle HTTP errors', async () => {
-    axiosMock.request.mockResolvedValueOnce({
-      status: 404,
-      statusText: 'Not Found',
-      headers: {},
-      data: { error: 'User not found' },
-    });
+    axiosMock.request.mockRejectedValueOnce(
+      httpFailure(404, 'Not Found', { error: 'User not found' })
+    );
 
     const client = createClient(apiContract, {
       axios: axiosMock,
