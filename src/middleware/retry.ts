@@ -23,9 +23,16 @@ const IDEMPOTENT_METHODS: ReadonlySet<HttpMethod> = new Set([
 ]);
 
 function defaultRetryCondition(error: Error, request: RequestContext): boolean {
-  if (!IDEMPOTENT_METHODS.has(request.method.toLowerCase() as HttpMethod)) {
-    return false;
-  }
+  return (
+    IDEMPOTENT_METHODS.has(request.method.toLowerCase() as HttpMethod) && isTransientError(error)
+  );
+}
+
+/**
+ * Whether a zodsei error is worth retrying: 5xx/408/429, timeouts and axios transport failures.
+ * Validation errors, other 4xx, cancellations and errors from your own code are not.
+ */
+export function isTransientError(error: unknown): boolean {
   if (error instanceof HttpError) {
     return error.status >= 500 || error.status === 408 || error.status === 429;
   }

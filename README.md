@@ -51,6 +51,7 @@ Use Zodsei when:
 - 📋 **Contract-first**: Define your API contract once, get type safety everywhere
 - ✅ **Runtime validation**: Request and response validation using Zod schemas
 - 🔌 **Middleware support**: Built-in retry, caching, and custom middleware
+- 🧩 **TanStack Vue Query**: `api.users.get.useQuery()` with typed keys, via `zodsei/vue-query`
 - 🌐 **Axios-based client**: Bring-your-own Axios instance for requests
 - 🚀 **Minimal dependencies**: Zod + Axios
 - 📦 **Modern**: ESM-only package for modern Node.js and browsers
@@ -366,6 +367,102 @@ try {
   }
 }
 ```
+
+## TanStack Vue Query
+
+`zodsei/vue-query` turns a client into typed TanStack Vue Query composables and options.
+
+```bash
+bun add @tanstack/vue-query vue
+```
+
+```typescript
+// api.ts
+import { createClient } from 'zodsei';
+import { createVueQueryUtils } from 'zodsei/vue-query';
+
+export const api = createVueQueryUtils(createClient(contract, { axios: http }));
+```
+
+```vue
+<script setup lang="ts">
+import { skipToken, useQueryClient } from '@tanstack/vue-query';
+const props = defineProps<{ id?: string }>();
+
+// Inputs can be plain values, refs, computeds or getters. skipToken disables the query.
+const user = api.users.get.useQuery(() => (props.id ? { id: props.id } : skipToken));
+const name = api.users.get.useQuery({ id: '1' }, { select: (u) => u.name, staleTime: 5_000 });
+const health = api.health.useQuery(); // endpoints without a request schema take no input
+
+const list = api.users.list.useInfiniteQuery({
+  input: (cursor: number | undefined) => ({ cursor, limit: 20 }),
+  initialPageParam: undefined,
+  getNextPageParam: (last) => last.next ?? undefined,
+});
+
+const queryClient = useQueryClient();
+const create = api.users.create.useMutation({
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: api.users.key() }),
+});
+</script>
+```
+
+Outside components, use the options and keys from the same object:
+
+```typescript
+await queryClient.query(api.users.get.queryOptions({ id }));
+queryClient.setQueryData(api.users.get.queryKey({ id }), (old) => old && { ...old, name });
+queryClient.invalidateQueries({ queryKey: api.users.get.key({ input: { id } }) });
+```
+
+| Helper                            | Use it for                                                |
+| --------------------------------- | --------------------------------------------------------- |
+| `useQuery` / `useInfiniteQuery`   | Components (inside `setup`)                               |
+| `useMutation`                     | Components; accepts mutation options such as `onSuccess`  |
+| `queryOptions` / `infiniteOptions` | `queryClient.query`, `useQueries`, route loaders          |
+| `mutationOptions`                 | `useMutation` from TanStack directly                      |
+| `queryKey(input)`                 | Exact key; `getQueryData` and `setQueryData` are typed    |
+| `key()` on groups and endpoints   | Partial key for `invalidateQueries`, `cancelQueries`      |
+
+Keys look like `[['users', 'get'], { type: 'query', input: { id: '1' } }]`, so `api.users.key()`
+matches every query under `users` and never collides with your own string keys.
+
+- The query's `signal` is passed to zodsei, so cancelling a query aborts the HTTP request.
+- `useInfiniteQuery` calls `input(pageParam)` for every page, including refetches of older pages.
+  Read reactive filters once in an options getter so each key keeps its own values:
+
+  ```typescript
+  api.users.list.useInfiniteQuery(() => {
+    const q = search.value;
+    return {
+      input: (cursor: number | undefined) => ({ cursor, q }),
+      initialPageParam: undefined,
+      getNextPageParam: (last) => last.next ?? undefined,
+    };
+  });
+  ```
+- Inputs in keys hold app-side values (a codec's `Date`, for example) and must be JSON-serializable;
+  `bigint`, `Map` and `Set` are not.
+- TanStack already retries failed queries (3 times in the browser). Don't add `retryMiddleware` as
+  well; use `isTransientError` so validation errors and 4xx are not retried:
+
+  ```typescript
+  import { isTransientError, type ZodseiError } from 'zodsei';
+
+  new QueryClient({
+    defaultOptions: { queries: { retry: (count, error) => count < 3 && isTransientError(error) } },
+  });
+
+  declare module '@tanstack/vue-query' {
+    interface Register {
+      defaultError: ZodseiError;
+    }
+  }
+  ```
+
+- Pass a `QueryClient` as the second argument of `createVueQueryUtils` only in client-only apps. With
+  SSR (Nuxt), leave it out so the composables inject the per-request client.
+- A contract entry named `key` hides that group's `key()` helper.
 
 ## Advanced
 

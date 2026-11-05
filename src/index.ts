@@ -47,7 +47,7 @@ export {
 
 // Middleware exports
 export { createMiddlewareExecutor, composeMiddleware } from './middleware';
-export { retryMiddleware, simpleRetry } from './middleware/retry';
+export { retryMiddleware, simpleRetry, isTransientError } from './middleware/retry';
 export {
   cacheMiddleware,
   simpleCache,

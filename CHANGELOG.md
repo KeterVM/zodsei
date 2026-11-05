@@ -40,6 +40,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   as the only argument when the endpoint has no request schema. `RequestContext` carries `signal`
   and `timeout` for middleware.
 - `CanceledError`, exported from the package root.
+- `zodsei/vue-query`: `createVueQueryUtils(client)` adds `useQuery`, `useInfiniteQuery`,
+  `useMutation`, `queryOptions`, `infiniteOptions`, `mutationOptions`, `queryKey` and `key` to every
+  endpoint, with typed keys for the query cache. `vue` and `@tanstack/vue-query` are optional peer
+  dependencies.
+- `isTransientError(error)`, the default retry policy's error check, for TanStack's `retry` option.
 
 ### Fixed
 

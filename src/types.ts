@@ -30,6 +30,10 @@ export function defineContract<T extends Contract>(contract: T): T {
   return contract;
 }
 
+export function isEndpointDefinition(value: unknown): value is EndpointDefinition {
+  return typeof value === 'object' && value !== null && 'path' in value && 'method' in value;
+}
+
 /**
  * Create client type from contract - supports nested access with schema support
  */

@@ -9,6 +9,7 @@ import {
   ApiClient,
   EndpointMethodWithSchema,
   InferResponseType,
+  isEndpointDefinition,
 } from './types';
 import { validateRequest, validateResponse } from './validation';
 import { canceledBy } from './errors';
@@ -16,6 +17,17 @@ import { separateParams, replacePath, shouldHaveBody, isNativeBody } from './uti
 import { MiddlewareExecutor } from './middleware';
 import { AxiosAdapter } from './adapters/axios';
 import { SchemaExtractor } from './schema';
+
+// Lets integrations such as zodsei/vue-query read a client's contract without a public API.
+const contracts = new WeakMap<object, Contract>();
+
+export function contractOf(client: object): Contract {
+  const contract = contracts.get(client);
+  if (!contract) {
+    throw new TypeError('Expected a client created by createClient');
+  }
+  return contract;
+}
 
 /**
  * Zodsei client core implementation
@@ -40,11 +52,11 @@ export class ZodseiClient<T extends Contract> {
     this.$schema = new SchemaExtractor(contract);
 
     // Create proxy object for dynamic method calls with nested support
-    return new Proxy(this, {
+    const client = new Proxy(this, {
       get: (target, prop: string | symbol) => {
         if (typeof prop === 'string') {
           // Check if it's a direct endpoint
-          if (prop in this.contract && this.isEndpointDefinition(this.contract[prop])) {
+          if (prop in this.contract && isEndpointDefinition(this.contract[prop])) {
             return this.createEndpointMethod(this.contract[prop] as EndpointDefinition);
           }
 
@@ -56,20 +68,15 @@ export class ZodseiClient<T extends Contract> {
         return Reflect.get(target as object, prop) as unknown;
       },
     }) as ZodseiClient<T> & ApiClient<T>;
-  }
-
-  /**
-   * Check if a value is an endpoint definition
-   */
-  private isEndpointDefinition(value: unknown): value is EndpointDefinition {
-    return typeof value === 'object' && value !== null && 'path' in value && 'method' in value;
+    contracts.set(client, contract);
+    return client;
   }
 
   /**
    * Check if a value is a nested contract
    */
   private isNestedContract(value: unknown): value is Contract {
-    return typeof value === 'object' && value !== null && !this.isEndpointDefinition(value);
+    return typeof value === 'object' && value !== null && !isEndpointDefinition(value);
   }
 
   /**
@@ -82,7 +89,7 @@ export class ZodseiClient<T extends Contract> {
         get: (_target, prop: string | symbol) => {
           if (typeof prop === 'string') {
             // Check if it's a direct endpoint in nested contract
-            if (prop in nestedContract && this.isEndpointDefinition(nestedContract[prop])) {
+            if (prop in nestedContract && isEndpointDefinition(nestedContract[prop])) {
               return this.createEndpointMethod(nestedContract[prop] as EndpointDefinition);
             }
 

@@ -51,6 +51,7 @@ Zodsei 提供：
 - 📋 **契约优先**：一次定义APIContract，处处享受类型安全
 - ✅ **运行时校验**：使用 Zod 对请求与响应进行校验
 - 🔌 **中间件支持**：内置重试、缓存与自定义中间件
+- 🧩 **TanStack Vue Query**：通过 `zodsei/vue-query` 直接写 `api.users.get.useQuery()`，key 带类型
 - 🌐 **Axios 统一实现**：通过你传入的 Axios 实例发起请求
 - 🚀 **最小依赖**：Zod + Axios
 - 📦 **现代包**：仅发布 ESM，支持现代 Node.js 与浏览器
@@ -367,6 +368,101 @@ try {
   }
 }
 ```
+
+## TanStack Vue Query
+
+`zodsei/vue-query` 把 client 变成带类型的 TanStack Vue Query composable 和 options。
+
+```bash
+bun add @tanstack/vue-query vue
+```
+
+```typescript
+// api.ts
+import { createClient } from 'zodsei';
+import { createVueQueryUtils } from 'zodsei/vue-query';
+
+export const api = createVueQueryUtils(createClient(contract, { axios: http }));
+```
+
+```vue
+<script setup lang="ts">
+import { skipToken, useQueryClient } from '@tanstack/vue-query';
+const props = defineProps<{ id?: string }>();
+
+// 参数可以是普通值、ref、computed 或 getter；skipToken 会禁用查询
+const user = api.users.get.useQuery(() => (props.id ? { id: props.id } : skipToken));
+const name = api.users.get.useQuery({ id: '1' }, { select: (u) => u.name, staleTime: 5_000 });
+const health = api.health.useQuery(); // 没有 request schema 的端点不传参数
+
+const list = api.users.list.useInfiniteQuery({
+  input: (cursor: number | undefined) => ({ cursor, limit: 20 }),
+  initialPageParam: undefined,
+  getNextPageParam: (last) => last.next ?? undefined,
+});
+
+const queryClient = useQueryClient();
+const create = api.users.create.useMutation({
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: api.users.key() }),
+});
+</script>
+```
+
+组件外面用同一个对象上的 options 和 key：
+
+```typescript
+await queryClient.query(api.users.get.queryOptions({ id }));
+queryClient.setQueryData(api.users.get.queryKey({ id }), (old) => old && { ...old, name });
+queryClient.invalidateQueries({ queryKey: api.users.get.key({ input: { id } }) });
+```
+
+| Helper                             | 用途                                               |
+| ---------------------------------- | -------------------------------------------------- |
+| `useQuery` / `useInfiniteQuery`    | 组件内（`setup` 里）                               |
+| `useMutation`                      | 组件内；可以传 `onSuccess` 等 mutation 选项        |
+| `queryOptions` / `infiniteOptions` | `queryClient.query`、`useQueries`、路由预取        |
+| `mutationOptions`                  | 直接配合 TanStack 的 `useMutation`                 |
+| `queryKey(input)`                  | 完整 key；`getQueryData`、`setQueryData` 有类型    |
+| 分组和端点上的 `key()`             | 部分匹配 key，用于 `invalidateQueries` 等          |
+
+key 的形状是 `[['users', 'get'], { type: 'query', input: { id: '1' } }]`，所以
+`api.users.key()` 能匹配 `users` 下的所有查询，也不会和你自己的字符串 key 冲突。
+
+- 查询的 `signal` 会传给 zodsei，取消查询就会中止 HTTP 请求。
+- `useInfiniteQuery` 每取一页都会调用 `input(pageParam)`，重新拉取旧页时也一样。响应式的筛选条件请在
+  options getter 里先读出来，这样每个 key 都保留自己的值：
+
+  ```typescript
+  api.users.list.useInfiniteQuery(() => {
+    const q = search.value;
+    return {
+      input: (cursor: number | undefined) => ({ cursor, q }),
+      initialPageParam: undefined,
+      getNextPageParam: (last) => last.next ?? undefined,
+    };
+  });
+  ```
+- key 里保存的是应用侧的值（比如 codec 的 `Date`），需要能被 JSON 序列化；`bigint`、`Map`、`Set` 不行。
+- TanStack 本身会重试失败的查询（浏览器里 3 次），不要再叠加 `retryMiddleware`。用
+  `isTransientError` 判断，校验错误和 4xx 不会被重试：
+
+  ```typescript
+  import { isTransientError, type ZodseiError } from 'zodsei';
+
+  new QueryClient({
+    defaultOptions: { queries: { retry: (count, error) => count < 3 && isTransientError(error) } },
+  });
+
+  declare module '@tanstack/vue-query' {
+    interface Register {
+      defaultError: ZodseiError;
+    }
+  }
+  ```
+
+- 只有纯客户端应用才把 `QueryClient` 作为 `createVueQueryUtils` 的第二个参数传入。SSR（Nuxt）里不要传，
+  让 composable 注入每个请求自己的 client。
+- contract 里如果有叫 `key` 的条目，会遮住该分组的 `key()` helper。
 
 ## 高级
 
