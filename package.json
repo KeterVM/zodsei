@@ -52,19 +52,19 @@
     "prepublishOnly": "bun run check && bun run build"
   },
   "dependencies": {
-    "axios": "^1.19.0"
+    "axios": "^1.21.0"
   },
   "devDependencies": {
-    "@types/node": "^26.2.0",
-    "@vitest/coverage-v8": "^4.1.10",
-    "@vitest/ui": "^4.1.10",
-    "oxfmt": "^0.63.0",
-    "oxlint": "^1.78.0",
-    "oxlint-tsgolint": "^7.0.2001",
-    "tsdown": "^0.22.14",
-    "typescript": "6",
-    "vitest": "^4.1.10",
-    "zod": "^4.4.3"
+    "@types/node": "^26.6.6",
+    "@vitest/coverage-v8": "^5.1.0",
+    "@vitest/ui": "^5.1.0",
+    "oxfmt": "^0.76.0",
+    "oxlint": "^1.91.0",
+    "oxlint-tsgolint": "^7.0.2006",
+    "tsdown": "^0.23.5",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0",
+    "zod": "^4.6.7"
   },
   "peerDependencies": {
     "zod": "^4.4.3"
