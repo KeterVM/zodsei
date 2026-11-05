@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+
+- Request data is encoded with `z.encode` instead of parsed, so codecs send their wire form.
+  Request schemas can no longer contain one-way steps (`.transform()`, `z.preprocess()`), and
+  forward-only steps (`.default()`, `.catch()`) no longer apply, so defaulted fields are required
+  at the call site. `validateRequest` and `safeParseRequest` encode as well and return the
+  schema's input type, which also makes the deprecated `createValidator().validateRequest`
+  return `unknown`.
+- The default retry policy only retries idempotent methods, and no longer retries cancelled
+  requests or errors that did not come from Axios. `retryCondition` receives the request as a
+  second argument and replaces the whole default policy.
+- `Content-Type: application/json` is only sent with JSON bodies, not on bodyless requests.
+- `replacePath` throws `ValidationError` for missing or non-primitive values and for values that
+  produce an empty or dot segment. `separateParams` returns path parameter values unconverted
+  (`unknown` instead of `string`).
+- A colon after an identifier character is no longer a parameter start, so `/users:batchGet`
+  keeps its literal `:batchGet`.
+
+### Fixed
+
+- `FormData`, `Blob`, `URLSearchParams` and binary request bodies are sent untouched instead of
+  being flattened into a JSON object.
+- Path parameters whose names share a prefix (`:id` and `:idx`) are substituted correctly, and a
+  name ends at the first non-identifier character (`/files/:name.json`).
+- A path parameter of `.` or `..` is rejected instead of letting URL normalisation route the
+  request to a different endpoint.
+- A missing path parameter is rejected instead of being sent as the literal `undefined`.
+- `retryMiddleware` with negative `retries` sends one request and rethrows its error instead of
+  throwing `undefined`.
+
+### Changed
+
+- Updated all dependencies to their latest releases, including TypeScript 7, Vitest 5 and
+  tsdown 0.23.
+
 ## [2.0.0] - 2026-08-10
 
 ### Breaking

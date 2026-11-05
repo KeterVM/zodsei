@@ -1,5 +1,6 @@
-import type { Middleware } from '../types';
-import { HttpError } from '../errors';
+import { isAxiosError, isCancel } from 'axios';
+import type { HttpMethod, Middleware, RequestContext } from '../types';
+import { HttpError, NetworkError, TimeoutError } from '../errors';
 
 /**
  * Retry middleware configuration
@@ -8,18 +9,36 @@ export interface RetryConfig {
   retries: number;
   delay: number;
   backoff?: 'linear' | 'exponential';
-  retryCondition?: (error: Error) => boolean;
+  /** Replaces the default policy entirely, including the idempotent-method check. */
+  retryCondition?: (error: Error, request: RequestContext) => boolean;
   onRetry?: (attempt: number, error: Error) => void;
 }
 
-// Default retry condition
-function defaultRetryCondition(error: Error): boolean {
+const IDEMPOTENT_METHODS: ReadonlySet<HttpMethod> = new Set([
+  'get',
+  'head',
+  'options',
+  'put',
+  'delete',
+]);
+
+function defaultRetryCondition(error: Error, request: RequestContext): boolean {
+  if (!IDEMPOTENT_METHODS.has(request.method.toLowerCase() as HttpMethod)) {
+    return false;
+  }
   if (error instanceof HttpError) {
-    // Retry server errors and some client errors
     return error.status >= 500 || error.status === 408 || error.status === 429;
   }
-  // Retry network errors
-  return true;
+  if (error instanceof TimeoutError) {
+    return true;
+  }
+  // Errors thrown by interceptors or user code are wrapped as NetworkError too, but only
+  // transport failures from axios itself are worth repeating.
+  return (
+    error instanceof NetworkError &&
+    isAxiosError(error.originalError) &&
+    !isCancel(error.originalError)
+  );
 }
 
 // Calculate delay time
@@ -47,44 +66,28 @@ function delay(ms: number): Promise<void> {
  */
 export function retryMiddleware(config: RetryConfig): Middleware {
   const {
-    retries,
     delay: baseDelay,
     backoff = 'exponential',
     retryCondition = defaultRetryCondition,
     onRetry,
   } = config;
+  // NaN would never satisfy `attempt >= retries` and retry forever.
+  const retries = Math.max(0, Math.trunc(config.retries) || 0);
 
   return async (request, next) => {
-    let lastError: Error;
-
-    for (let attempt = 0; attempt <= retries; attempt++) {
+    for (let attempt = 0; ; attempt++) {
       try {
         return await next(request);
-      } catch (error) {
-        lastError = error as Error;
-
-        // If it's the last attempt, throw error directly
-        if (attempt === retries) {
-          throw lastError;
+      } catch (caught) {
+        const error = caught as Error;
+        if (attempt >= retries || !retryCondition(error, request)) {
+          throw error;
         }
 
-        // Check if should retry
-        if (!retryCondition(lastError)) {
-          throw lastError;
-        }
-
-        // Call retry callback
-        if (onRetry) {
-          onRetry(attempt + 1, lastError);
-        }
-
-        // Calculate delay and wait
-        const delayTime = calculateDelay(attempt, baseDelay, backoff);
-        await delay(delayTime);
+        onRetry?.(attempt + 1, error);
+        await delay(calculateDelay(attempt, baseDelay, backoff));
       }
     }
-
-    throw lastError!;
   };
 }
 

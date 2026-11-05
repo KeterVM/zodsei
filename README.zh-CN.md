@@ -257,6 +257,10 @@ Zodsei 支持面向横切关注点的中间件：
 
 #### 重试中间件
 
+默认只重试幂等方法（`GET`、`HEAD`、`OPTIONS`、`PUT`、`DELETE`），触发条件是 5xx、408、429
+响应，超时，以及 Axios 网络错误。被取消的请求和你自己的拦截器抛出的错误不会重试。传入
+`retryCondition(error, request)` 可以替换这套策略，例如重试一个确认可以重复执行的 `POST`。
+
 ```typescript
 import { retryMiddleware } from 'zodsei';
 
@@ -383,6 +387,11 @@ const post = await client.getUserPosts({
 });
 ```
 
+参数名是 JavaScript 标识符，所以 `/files/:name.json` 读取的是 `name`。紧跟在字母或数字后面的冒号
+按字面处理，所以 `/users:batchGet`、`/ops/:name:cancel` 这类自定义方法可以正常使用。参数值会做 URL
+编码，且必须是 string、number、boolean 或 bigint。缺少参数值、参数值不是基本类型，或者参数值让整段
+路径变成空、`.` 或 `..` 时，会在发送请求前抛出 `ValidationError`。
+
 ### 查询参数
 
 对于 GET 请求，非路径参数会自动转换为查询参数：
@@ -414,7 +423,8 @@ const results = await client.searchUsers({
 
 ### 请求体
 
-对于 POST/PUT/PATCH 请求，请求数据将作为 JSON body 发送：
+对于 POST/PUT/PATCH 请求，普通对象会作为 JSON body 发送。`FormData`、`Blob`、`URLSearchParams`
+和二进制数据等其他值会原样交给 Axios，由 Axios 设置 `Content-Type`。
 
 ```typescript
 const contract = defineContract({
@@ -437,6 +447,35 @@ const updated = await client.updateUser({
   email: 'new@example.com',
 });
 ```
+
+### Codecs
+
+请求用 `z.encode` 编码，响应用 parse 解析，所以一个 [codec](https://zod.dev/codecs) 就能描述两个
+方向。调用方传入和拿到的都是应用层的值，线上传输的是编码后的形式：
+
+```typescript
+const isoDate = z.codec(z.iso.datetime(), z.date(), {
+  decode: (s) => new Date(s),
+  encode: (d) => d.toISOString(),
+});
+
+const contract = defineContract({
+  reschedule: {
+    path: '/events/:id',
+    method: 'put' as const,
+    request: z.object({ id: z.string(), startsAt: isoDate }),
+    response: z.object({ startsAt: isoDate }),
+  },
+});
+
+// 发送 {"startsAt":"2026-01-01T00:00:00.000Z"}；result.startsAt 是 Date。
+const result = await client.reschedule({ id: '1', startsAt: new Date('2026-01-01') });
+```
+
+编码是沿 schema 反向执行的。`.transform()`、`z.preprocess()` 这类单向步骤会抛错，`.default()`、
+`.catch()` 这类只在正向生效的步骤不会执行，所以带默认值的字段在调用时是必填的。`.refine()`、
+`.trim()`、`z.coerce` 这类检查照常生效。设置 `validateRequest: false` 时，请求数据按原样发送，
+不做编码。
 
 ## 许可
 

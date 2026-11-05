@@ -97,7 +97,6 @@ describe('ZodseiClient', () => {
         expect.objectContaining({
           url: '/users/123e4567-e89b-12d3-a456-426614174000',
           method: 'get',
-          headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
         })
       );
     });

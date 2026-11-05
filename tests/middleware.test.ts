@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
-import { createClient } from '../src';
+import { createClient, HttpError, NetworkError } from '../src';
 import { retryMiddleware, cacheMiddleware } from '../src';
+import { AxiosError, CanceledError } from 'axios';
 import type { AxiosInstance } from 'axios';
 import type { Middleware } from '../src';
 
@@ -135,6 +136,128 @@ describe('Middleware', () => {
 
       // Should only be called once (no retry for 404)
       expect(axiosMock.request).toHaveBeenCalledTimes(1);
+    });
+
+    const serverError = {
+      status: 500,
+      statusText: 'Internal Server Error',
+      headers: {},
+      data: null,
+    };
+    const ok = { status: 200, statusText: 'OK', headers: {}, data: { id: 'u1' } };
+    const writeContract = {
+      createUser: {
+        path: '/users',
+        method: 'post',
+        request: z.object({ name: z.string() }),
+      },
+    } as const;
+
+    it('does not retry non-idempotent methods by default', async () => {
+      axiosMock.request.mockResolvedValue(serverError);
+      const client = createClient(writeContract, {
+        axios: axiosMock,
+        middleware: [retryMiddleware({ retries: 3, delay: 0 })],
+      });
+
+      await expect(client.createUser({ name: 'Ann' })).rejects.toBeInstanceOf(HttpError);
+      expect(axiosMock.request).toHaveBeenCalledTimes(1);
+    });
+
+    it('lets a custom retryCondition opt a POST into retries', async () => {
+      axiosMock.request.mockResolvedValueOnce(serverError).mockResolvedValueOnce(ok);
+      const retryCondition = vi.fn(() => true);
+      const client = createClient(writeContract, {
+        axios: axiosMock,
+        middleware: [retryMiddleware({ retries: 1, delay: 0, retryCondition })],
+      });
+
+      await client.createUser({ name: 'Ann' });
+
+      expect(axiosMock.request).toHaveBeenCalledTimes(2);
+      expect(retryCondition).toHaveBeenCalledWith(
+        expect.any(HttpError),
+        expect.objectContaining({ method: 'post', url: '/users' })
+      );
+    });
+
+    it('retries network failures on GET', async () => {
+      axiosMock.request
+        .mockRejectedValueOnce(new AxiosError('socket hang up', 'ECONNRESET', undefined, {}))
+        .mockResolvedValueOnce(ok);
+      const client = createClient(apiContract, {
+        axios: axiosMock,
+        validateResponse: false,
+        middleware: [retryMiddleware({ retries: 1, delay: 0 })],
+      });
+
+      await client.getUser({ id: '123e4567-e89b-12d3-a456-426614174000' });
+
+      expect(axiosMock.request).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not retry a cancelled request', async () => {
+      axiosMock.request.mockRejectedValue(new CanceledError());
+      const client = createClient(apiContract, {
+        axios: axiosMock,
+        middleware: [retryMiddleware({ retries: 3, delay: 0 })],
+      });
+
+      await expect(
+        client.getUser({ id: '123e4567-e89b-12d3-a456-426614174000' })
+      ).rejects.toBeInstanceOf(NetworkError);
+      expect(axiosMock.request).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not retry errors that did not come from axios', async () => {
+      axiosMock.request.mockRejectedValue(new Error('token refresh failed'));
+      const client = createClient(apiContract, {
+        axios: axiosMock,
+        middleware: [retryMiddleware({ retries: 3, delay: 0 })],
+      });
+
+      await expect(client.getUser({ id: '123e4567-e89b-12d3-a456-426614174000' })).rejects.toThrow(
+        'token refresh failed'
+      );
+      expect(axiosMock.request).toHaveBeenCalledTimes(1);
+    });
+
+    it('treats negative retries as zero and rethrows the real error', async () => {
+      axiosMock.request.mockResolvedValue(serverError);
+      const client = createClient(apiContract, {
+        axios: axiosMock,
+        middleware: [retryMiddleware({ retries: -1, delay: 0 })],
+      });
+
+      await expect(
+        client.getUser({ id: '123e4567-e89b-12d3-a456-426614174000' })
+      ).rejects.toBeInstanceOf(HttpError);
+      expect(axiosMock.request).toHaveBeenCalledTimes(1);
+    });
+
+    it('treats NaN retries as zero instead of retrying forever', async () => {
+      axiosMock.request.mockResolvedValue(serverError);
+      const client = createClient(apiContract, {
+        axios: axiosMock,
+        middleware: [retryMiddleware({ retries: Number('not a number'), delay: 0 })],
+      });
+
+      await expect(
+        client.getUser({ id: '123e4567-e89b-12d3-a456-426614174000' })
+      ).rejects.toBeInstanceOf(HttpError);
+      expect(axiosMock.request).toHaveBeenCalledTimes(1);
+    });
+
+    it('matches idempotent methods case-insensitively', async () => {
+      axiosMock.request.mockResolvedValueOnce(serverError).mockResolvedValueOnce(ok);
+      const client = createClient(
+        { list: { path: '/users', method: 'GET' as 'get' } },
+        { axios: axiosMock, middleware: [retryMiddleware({ retries: 1, delay: 0 })] }
+      );
+
+      await client.list();
+
+      expect(axiosMock.request).toHaveBeenCalledTimes(2);
     });
   });
 

@@ -6,13 +6,9 @@ type SafeValidationResult<T> =
   | { success: true; data: T }
   | { success: false; error: ValidationError };
 
-function validate<T>(schema: z.ZodType<T> | undefined, data: unknown, type: ValidationType): T {
-  if (!schema) {
-    return data as T;
-  }
-
+function validate<T>(run: () => T, type: ValidationType): T {
   try {
-    return schema.parse(data);
+    return run();
   } catch (error) {
     if (error instanceof z.ZodError) {
       throw ValidationError.fromZodError(error, type);
@@ -22,16 +18,11 @@ function validate<T>(schema: z.ZodType<T> | undefined, data: unknown, type: Vali
 }
 
 function safeValidate<T>(
-  schema: z.ZodType<T> | undefined,
-  data: unknown,
+  run: () => z.ZodSafeParseResult<T>,
   type: ValidationType
 ): SafeValidationResult<T> {
-  if (!schema) {
-    return { success: true, data: data as T };
-  }
-
   try {
-    const result = schema.safeParse(data);
+    const result = run();
     return result.success
       ? { success: true, data: result.data }
       : { success: false, error: ValidationError.fromZodError(result.error, type) };
@@ -46,26 +37,37 @@ function safeValidate<T>(
   }
 }
 
-export function validateRequest<T>(schema: z.ZodType<T> | undefined, data: unknown): T {
-  return validate(schema, data, 'request');
+// Requests travel outbound, so they are encoded (output -> input), which is what makes
+// codecs produce their wire form. Responses travel inbound and are parsed (input -> output).
+export function validateRequest<S extends z.ZodType>(
+  schema: S | undefined,
+  data: unknown
+): z.input<S> {
+  return schema
+    ? validate(() => z.encode(schema, data as z.output<S>), 'request')
+    : (data as z.input<S>);
 }
 
 export function validateResponse<T>(schema: z.ZodType<T> | undefined, data: unknown): T {
-  return validate(schema, data, 'response');
+  return schema ? validate(() => schema.parse(data), 'response') : (data as T);
 }
 
-export function safeParseRequest<T>(
-  schema: z.ZodType<T> | undefined,
+export function safeParseRequest<S extends z.ZodType>(
+  schema: S | undefined,
   data: unknown
-): SafeValidationResult<T> {
-  return safeValidate(schema, data, 'request');
+): SafeValidationResult<z.input<S>> {
+  return schema
+    ? safeValidate(() => z.safeEncode(schema, data as z.output<S>), 'request')
+    : { success: true, data: data as z.input<S> };
 }
 
 export function safeParseResponse<T>(
   schema: z.ZodType<T> | undefined,
   data: unknown
 ): SafeValidationResult<T> {
-  return safeValidate(schema, data, 'response');
+  return schema
+    ? safeValidate(() => schema.safeParse(data), 'response')
+    : { success: true, data: data as T };
 }
 
 /** @deprecated Prefer the individual validation functions. */

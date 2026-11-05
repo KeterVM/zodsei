@@ -1,6 +1,4 @@
-/**
- * Path handling utility functions
- */
+import { ValidationError } from '../errors';
 
 function serializeQueryValue(value: unknown): string {
   if (value === null || value === undefined) {
@@ -27,21 +25,65 @@ function serializeQueryValue(value: unknown): string {
   return JSON.stringify(value) ?? '';
 }
 
-// Extract path parameter names
+// A colon right after an identifier character is literal, as in AIP-136 custom methods
+// (`/users:batchGet`, `/models/:name:generate`).
+const PATH_PARAM = /(?<![\w$]):([A-Za-z_$][\w$]*)/g;
+
 export function extractPathParamNames(path: string): string[] {
-  const matches = path.match(/:([^/]+)/g);
-  return matches ? matches.map((match) => match.slice(1)) : [];
+  return Array.from(path.matchAll(PATH_PARAM), (match) => match[1]);
 }
 
-// Replace path parameters
-export function replacePath(path: string, params: Record<string, string>): string {
-  let result = path;
+// Empty and dot segments are rejected because they move the request to a different endpoint:
+// URL parsing resolves dot segments (encoded or not), and `/users/` is not `/users/:id`.
+export function replacePath(path: string, params: Record<string, unknown>): string {
+  return path
+    .split('/')
+    .map((segment) => {
+      const replaced = segment.replace(PATH_PARAM, (_, name: string) => {
+        const value = Object.prototype.hasOwnProperty.call(params, name) ? params[name] : undefined;
+        if (value === undefined || value === null) {
+          throw new ValidationError(`Missing path parameter "${name}" for ${path}`, [], 'request');
+        }
+        if (
+          typeof value !== 'string' &&
+          typeof value !== 'number' &&
+          typeof value !== 'boolean' &&
+          typeof value !== 'bigint'
+        ) {
+          throw new ValidationError(
+            `Path parameter "${name}" must be a string, number, boolean or bigint`,
+            [],
+            'request'
+          );
+        }
+        return encodeURIComponent(String(value));
+      });
+      if (replaced !== segment && (replaced === '' || replaced === '.' || replaced === '..')) {
+        throw new ValidationError(
+          `Path parameter resolves to segment "${replaced}" in ${path}`,
+          [],
+          'request'
+        );
+      }
+      return replaced;
+    })
+    .join('/');
+}
 
-  for (const [key, value] of Object.entries(params)) {
-    result = result.replace(`:${key}`, encodeURIComponent(value));
+// Bodies axios sends as-is and sets its own Content-Type for (multipart boundary included).
+export function isNativeBody(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) {
+    return false;
   }
-
-  return result;
+  return (
+    (typeof FormData !== 'undefined' && value instanceof FormData) ||
+    (typeof Blob !== 'undefined' && value instanceof Blob) ||
+    (typeof URLSearchParams !== 'undefined' && value instanceof URLSearchParams) ||
+    (typeof ReadableStream !== 'undefined' && value instanceof ReadableStream) ||
+    value instanceof ArrayBuffer ||
+    ArrayBuffer.isView(value) ||
+    typeof (value as { pipe?: unknown }).pipe === 'function'
+  );
 }
 
 // Build query string
@@ -73,9 +115,9 @@ export function buildUrl(path: string, query?: Record<string, unknown>): string 
 export function separateParams(
   path: string,
   data: Record<string, unknown> | null | undefined
-): { pathParams: Record<string, string>; queryParams: Record<string, unknown> } {
+): { pathParams: Record<string, unknown>; queryParams: Record<string, unknown> } {
   const pathParamNames = extractPathParamNames(path);
-  const pathParams: Record<string, string> = {};
+  const pathParams: Record<string, unknown> = {};
   const queryParams: Record<string, unknown> = {};
 
   // Handle null/undefined data
@@ -85,7 +127,7 @@ export function separateParams(
 
   for (const [key, value] of Object.entries(data)) {
     if (pathParamNames.includes(key)) {
-      pathParams[key] = String(value);
+      pathParams[key] = value;
     } else {
       queryParams[key] = value;
     }

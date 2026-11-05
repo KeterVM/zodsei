@@ -10,7 +10,7 @@ import {
   InferResponseType,
 } from './types';
 import { validateRequest, validateResponse } from './validation';
-import { separateParams, replacePath, shouldHaveBody } from './utils/path';
+import { separateParams, replacePath, shouldHaveBody, isNativeBody } from './utils/path';
 import { MiddlewareExecutor } from './middleware';
 import { AxiosAdapter } from './adapters/axios';
 import { SchemaExtractor } from './schema';
@@ -148,27 +148,27 @@ export class ZodseiClient<T extends Contract> {
   private buildRequestContext(endpoint: EndpointDefinition, data: unknown): RequestContext {
     const { path, method } = endpoint;
 
-    // Separate path params and query params
-    const { pathParams, queryParams } = separateParams(
-      path,
-      typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : undefined
-    );
-
-    // Replace path parameters
+    const fields =
+      typeof data === 'object' && data !== null && !Array.isArray(data) && !isNativeBody(data)
+        ? (data as Record<string, unknown>)
+        : undefined;
+    const { pathParams, queryParams } = separateParams(path, fields);
     const finalPath = replacePath(path, pathParams);
 
     const usesBody = shouldHaveBody(method);
-    const isRecord = typeof data === 'object' && data !== null && !Array.isArray(data);
-    const requestData = isRecord ? queryParams : data;
+    const body = usesBody ? (fields ? queryParams : data) : undefined;
 
     return {
       // Keep query parameters in RequestContext so Axios serializes them exactly once.
       url: finalPath.startsWith('/') ? finalPath : `/${finalPath}`,
       method,
-      headers: {},
-      body: usesBody ? requestData : undefined,
-      params: pathParams,
-      query: !usesBody && isRecord ? queryParams : undefined,
+      headers:
+        body === undefined || isNativeBody(body) ? {} : { 'Content-Type': 'application/json' },
+      body,
+      params: Object.fromEntries(
+        Object.entries(pathParams).map(([key, value]) => [key, String(value)])
+      ),
+      query: !usesBody && fields ? queryParams : undefined,
     };
   }
 

@@ -254,6 +254,11 @@ Zodsei supports middleware for cross-cutting concerns:
 
 #### Retry Middleware
 
+By default only idempotent methods (`GET`, `HEAD`, `OPTIONS`, `PUT`, `DELETE`) are retried, on
+5xx, 408 and 429 responses, timeouts, and Axios network failures. Cancelled requests and errors
+thrown by your own interceptors are not retried. Pass `retryCondition(error, request)` to replace
+this policy, for example to retry a `POST` you know is safe to repeat.
+
 ```typescript
 import { retryMiddleware } from 'zodsei';
 
@@ -380,6 +385,12 @@ const post = await client.getUserPosts({
 });
 ```
 
+A parameter name is a JavaScript identifier, so `/files/:name.json` reads `name`. A colon that
+follows a letter or digit is literal, so custom methods like `/users:batchGet` or
+`/ops/:name:cancel` work. Values are URL-encoded and must be strings, numbers, booleans or bigints.
+A missing value, a non-primitive value, or a value that would make a whole segment empty, `.` or
+`..` throws a `ValidationError` before any request is sent.
+
 ### Query Parameters
 
 For GET requests, non-path parameters are automatically converted to query parameters:
@@ -411,7 +422,9 @@ const results = await client.searchUsers({
 
 ### Request Body
 
-For POST/PUT/PATCH requests, the request data is sent as JSON body:
+For POST/PUT/PATCH requests, a plain-object request is sent as a JSON body. Other values such as
+`FormData`, `Blob`, `URLSearchParams` or binary data are passed to Axios untouched, and Axios
+sets their `Content-Type`.
 
 ```typescript
 const contract = defineContract({
@@ -434,6 +447,37 @@ const updated = await client.updateUser({
   email: 'new@example.com',
 });
 ```
+
+### Codecs
+
+Requests are encoded with `z.encode` and responses are parsed, so one
+[codec](https://zod.dev/codecs) describes both directions. You pass and receive app values, and
+the wire carries the encoded form:
+
+```typescript
+const isoDate = z.codec(z.iso.datetime(), z.date(), {
+  decode: (s) => new Date(s),
+  encode: (d) => d.toISOString(),
+});
+
+const contract = defineContract({
+  reschedule: {
+    path: '/events/:id',
+    method: 'put' as const,
+    request: z.object({ id: z.string(), startsAt: isoDate }),
+    response: z.object({ startsAt: isoDate }),
+  },
+});
+
+// Sends {"startsAt":"2026-01-01T00:00:00.000Z"}; result.startsAt is a Date.
+const result = await client.reschedule({ id: '1', startsAt: new Date('2026-01-01') });
+```
+
+Encoding runs backwards through the schema. One-way steps such as `.transform()` and
+`z.preprocess()` throw, and forward-only steps such as `.default()` and `.catch()` do not apply,
+so defaulted fields are required at the call site. Checks such as `.refine()`, `.trim()` and
+`z.coerce` keep working. With `validateRequest: false` the request data is sent as passed,
+without encoding.
 
 ## License
 

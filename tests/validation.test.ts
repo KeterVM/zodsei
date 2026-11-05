@@ -50,14 +50,23 @@ describe('Validation Utilities', () => {
       }
     });
 
-    it('should handle non-Zod errors', () => {
-      const throwingSchema = {
-        parse: () => {
-          throw new Error('Custom error');
-        },
-      } as unknown as z.ZodType<unknown>;
+    it('should encode codec fields to their wire type', () => {
+      const schema = z.object({
+        at: z.codec(z.iso.datetime(), z.date(), {
+          decode: (s) => new Date(s),
+          encode: (d) => d.toISOString(),
+        }),
+      });
 
-      expect(() => validateRequest(throwingSchema, validUser)).toThrow('Custom error');
+      expect(validateRequest(schema, { at: new Date('2026-01-01T00:00:00.000Z') })).toEqual({
+        at: '2026-01-01T00:00:00.000Z',
+      });
+    });
+
+    it('should rethrow non-Zod errors such as one-way transforms', () => {
+      const schema = z.string().transform((s) => s.length);
+
+      expect(() => validateRequest(schema, 3)).toThrow(/unidirectional transform/);
     });
   });
 
@@ -110,13 +119,10 @@ describe('Validation Utilities', () => {
     });
 
     it('should handle non-Zod errors', () => {
-      const throwingSchema = {
-        parse: () => {
-          throw new Error('Custom error');
-        },
-      } as unknown as z.ZodType<unknown>;
-
-      const result = safeParseRequest(throwingSchema, validUser);
+      const result = safeParseRequest(
+        z.string().transform((s) => s.length),
+        3
+      );
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error).toBeInstanceOf(ValidationError);

@@ -95,10 +95,7 @@ export class AxiosAdapter {
     const config: AxiosRequestConfig = {
       url: context.url,
       method: context.method.toLowerCase() as AxiosRequestConfig['method'],
-      headers: {
-        'Content-Type': 'application/json',
-        ...context.headers,
-      },
+      headers: context.headers,
     };
 
     // Add request body
