@@ -62,6 +62,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Updated all dependencies to their latest releases, including TypeScript 7, Vitest 5 and
   tsdown 0.23.
+- Moved the development toolchain to Vite+ (`vp`): `vp pack` builds with tsdown, `vp test` runs
+  Vitest, and `vp check` formats, lints and type-checks. tsdown, Vitest, Oxlint and Oxfmt settings
+  now live in `vite.config.ts`. The published build is byte-identical.
+- `vp check` type-checks tests and examples too, which caught an undefined `apiContract` in
+  `examples/schema-inference.ts`.
 
 ## [2.0.0] - 2026-08-10
 

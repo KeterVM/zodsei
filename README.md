@@ -338,11 +338,11 @@ Use `timeout` rather than `signal: AbortSignal.timeout(ms)` when you want a `Tim
 aborted signal always rejects with `CanceledError`, and an already-aborted signal rejects before
 any middleware runs. Retry delays end early when the signal aborts.
 
-| Option    | Effect                                                    |
-| --------- | --------------------------------------------------------- |
-| `signal`  | `AbortSignal` for this call                               |
-| `timeout` | Milliseconds; overrides the Axios instance timeout        |
-| `headers` | Merged over the headers Zodsei sets, for this call only   |
+| Option    | Effect                                                  |
+| --------- | ------------------------------------------------------- |
+| `signal`  | `AbortSignal` for this call                             |
+| `timeout` | Milliseconds; overrides the Axios instance timeout      |
+| `headers` | Merged over the headers Zodsei sets, for this call only |
 
 ### Error Handling
 
@@ -415,14 +415,14 @@ queryClient.setQueryData(api.users.get.queryKey({ id }), (old) => old && { ...ol
 queryClient.invalidateQueries({ queryKey: api.users.get.key({ input: { id } }) });
 ```
 
-| Helper                            | Use it for                                                |
-| --------------------------------- | --------------------------------------------------------- |
-| `useQuery` / `useInfiniteQuery`   | Components (inside `setup`)                               |
-| `useMutation`                     | Components; accepts mutation options such as `onSuccess`  |
-| `queryOptions` / `infiniteOptions` | `queryClient.query`, `useQueries`, route loaders          |
-| `mutationOptions`                 | `useMutation` from TanStack directly                      |
-| `queryKey(input)`                 | Exact key; `getQueryData` and `setQueryData` are typed    |
-| `key()` on groups and endpoints   | Partial key for `invalidateQueries`, `cancelQueries`      |
+| Helper                             | Use it for                                               |
+| ---------------------------------- | -------------------------------------------------------- |
+| `useQuery` / `useInfiniteQuery`    | Components (inside `setup`)                              |
+| `useMutation`                      | Components; accepts mutation options such as `onSuccess` |
+| `queryOptions` / `infiniteOptions` | `queryClient.query`, `useQueries`, route loaders         |
+| `mutationOptions`                  | `useMutation` from TanStack directly                     |
+| `queryKey(input)`                  | Exact key; `getQueryData` and `setQueryData` are typed   |
+| `key()` on groups and endpoints    | Partial key for `invalidateQueries`, `cancelQueries`     |
 
 Keys look like `[['users', 'get'], { type: 'query', input: { id: '1' } }]`, so `api.users.key()`
 matches every query under `users` and never collides with your own string keys.
@@ -441,6 +441,7 @@ matches every query under `users` and never collides with your own string keys.
     };
   });
   ```
+
 - Inputs in keys hold app-side values (a codec's `Date`, for example) and must be JSON-serializable;
   `bigint`, `Map` and `Set` are not.
 - TanStack already retries failed queries (3 times in the browser). Don't add `retryMiddleware` as

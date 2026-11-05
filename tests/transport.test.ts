@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { z } from 'zod';
 import { AxiosError, CanceledError as AxiosCanceledError } from 'axios';
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';

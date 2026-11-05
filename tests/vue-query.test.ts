@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vite-plus/test';
 import { createApp, effectScope, isReactive, reactive, ref, type EffectScope } from 'vue';
 import { QueryClient, VueQueryPlugin, skipToken } from '@tanstack/vue-query';
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';

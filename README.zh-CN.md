@@ -416,14 +416,14 @@ queryClient.setQueryData(api.users.get.queryKey({ id }), (old) => old && { ...ol
 queryClient.invalidateQueries({ queryKey: api.users.get.key({ input: { id } }) });
 ```
 
-| Helper                             | 用途                                               |
-| ---------------------------------- | -------------------------------------------------- |
-| `useQuery` / `useInfiniteQuery`    | 组件内（`setup` 里）                               |
-| `useMutation`                      | 组件内；可以传 `onSuccess` 等 mutation 选项        |
-| `queryOptions` / `infiniteOptions` | `queryClient.query`、`useQueries`、路由预取        |
-| `mutationOptions`                  | 直接配合 TanStack 的 `useMutation`                 |
-| `queryKey(input)`                  | 完整 key；`getQueryData`、`setQueryData` 有类型    |
-| 分组和端点上的 `key()`             | 部分匹配 key，用于 `invalidateQueries` 等          |
+| Helper                             | 用途                                            |
+| ---------------------------------- | ----------------------------------------------- |
+| `useQuery` / `useInfiniteQuery`    | 组件内（`setup` 里）                            |
+| `useMutation`                      | 组件内；可以传 `onSuccess` 等 mutation 选项     |
+| `queryOptions` / `infiniteOptions` | `queryClient.query`、`useQueries`、路由预取     |
+| `mutationOptions`                  | 直接配合 TanStack 的 `useMutation`              |
+| `queryKey(input)`                  | 完整 key；`getQueryData`、`setQueryData` 有类型 |
+| 分组和端点上的 `key()`             | 部分匹配 key，用于 `invalidateQueries` 等       |
 
 key 的形状是 `[['users', 'get'], { type: 'query', input: { id: '1' } }]`，所以
 `api.users.key()` 能匹配 `users` 下的所有查询，也不会和你自己的字符串 key 冲突。
@@ -442,6 +442,7 @@ key 的形状是 `[['users', 'get'], { type: 'query', input: { id: '1' } }]`，�
     };
   });
   ```
+
 - key 里保存的是应用侧的值（比如 codec 的 `Date`），需要能被 JSON 序列化；`bigint`、`Map`、`Set` 不行。
 - TanStack 本身会重试失败的查询（浏览器里 3 次），不要再叠加 `retryMiddleware`。用
   `isTransientError` 判断，校验错误和 4xx 不会被重试：

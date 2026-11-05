@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { defineContract, createClient, extractTypeInfo } from '../src';
 import type { InferRequestType, InferResponseType } from '../src';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import type { AxiosInstance } from 'axios';
 
 function createAxiosMock(baseURL = 'https://api.example.com') {
