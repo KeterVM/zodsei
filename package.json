@@ -1,6 +1,6 @@
 {
   "name": "zodsei",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Contract-first type-safe HTTP client with Zod validation",
   "keywords": [
     "api-client",

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-11-06
+
+### Added
+
+- `createVueQueryUtils(client, { scope })` prefixes every key path with `scope`, so clients sharing
+  a `QueryClient` get separate keys and the root `key()` matches only that client's queries.
+- `createVueQueryUtils(client, { queryClient })`.
+
+### Deprecated
+
+- Passing a `QueryClient` directly as the second argument of `createVueQueryUtils`. Pass
+  `{ queryClient }` instead.
+
 ## [3.0.0] - 2026-11-06
 
 ### Breaking
@@ -565,6 +578,7 @@ z.iso.datetime();
 - Full TypeScript support
 - Comprehensive test suite
 
-[Unreleased]: https://github.com/KeterVM/zodsei/compare/v3.0.0...HEAD
+[Unreleased]: https://github.com/KeterVM/zodsei/compare/v3.1.0...HEAD
+[3.1.0]: https://github.com/KeterVM/zodsei/releases/tag/v3.1.0
 [3.0.0]: https://github.com/KeterVM/zodsei/releases/tag/v3.0.0
 [2.0.0]: https://github.com/KeterVM/zodsei/releases/tag/v2.0.0
