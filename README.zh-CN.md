@@ -461,8 +461,18 @@ key 的形状是 `[['users', 'get'], { type: 'query', input: { id: '1' } }]`，�
   }
   ```
 
-- 只有纯客户端应用才把 `QueryClient` 作为 `createVueQueryUtils` 的第二个参数传入。SSR（Nuxt）里不要传，
-  让 composable 注入每个请求自己的 client。
+- 每个模块各有一个 client、共用一个 `QueryClient` 时，给每个 client 设一个 `scope`。key 会以 scope
+  开头，`authApi.key()` 只匹配这个模块的查询，两个模块里同名的端点也不会共用缓存：
+
+  ```typescript
+  export const authApi = createVueQueryUtils(authClient, { scope: ['auth'] });
+  authApi.users.get.queryKey({ id: '1' }); // [['auth', 'users', 'get'], { type: 'query', ... }]
+  ```
+
+  不设 scope 时，根节点的 `key()` 是 `[[]]`，会匹配所有 zodsei 查询。
+
+- 只有纯客户端应用才给 `createVueQueryUtils` 传 `{ queryClient }`。SSR（Nuxt）里不要传，让 composable
+  注入每个请求自己的 client。
 - contract 里如果有叫 `key` 的条目，会遮住该分组的 `key()` helper。
 
 ## 高级

@@ -100,6 +100,26 @@ describe('zodsei/vue-query', () => {
       expect(count(api.health.key())).toBe(1);
       expect(count(['users'])).toBe(0);
     });
+
+    it('prefixes keys with a scope so clients sharing a QueryClient stay apart', async () => {
+      const auth = createVueQueryUtils(createClient(contract, { axios: axiosMock }), {
+        scope: ['auth'],
+      });
+      expect(auth.key()).toEqual([['auth']]);
+      expect(auth.users.get.queryKey({ id: '1' })).toEqual([
+        ['auth', 'users', 'get'],
+        { type: 'query', input: { id: '1' } },
+      ]);
+
+      await queryClient.query(auth.users.get.queryOptions({ id: '1' }));
+      await queryClient.query(api.users.get.queryOptions({ id: '1' }));
+      const count = (queryKey: readonly unknown[]) =>
+        queryClient.getQueryCache().findAll({ queryKey }).length;
+
+      expect(count(auth.key())).toBe(1);
+      expect(count(api.users.key())).toBe(1);
+      expect(queryClient.getQueryData(auth.users.get.queryKey({ id: '1' }))?.id).toBe('1');
+    });
   });
 
   describe('options', () => {
@@ -296,6 +316,19 @@ describe('zodsei/vue-query', () => {
 
       expect(own.getQueryData(ownApi.users.get.queryKey({ id: '9' }))?.id).toBe('9');
       expect(queryClient.getQueryData(api.users.get.queryKey({ id: '9' }))).toBeUndefined();
+      own.clear();
+    });
+
+    it('takes the QueryClient from the options object', async () => {
+      const own = new QueryClient();
+      const ownApi = createVueQueryUtils(createClient(contract, { axios: axiosMock }), {
+        queryClient: own,
+      });
+
+      const user = inSetup(() => ownApi.users.get.useQuery({ id: '9' }));
+      await vi.waitFor(() => expect(user.data.value?.id).toBe('9'));
+
+      expect(own.getQueryData(ownApi.users.get.queryKey({ id: '9' }))?.id).toBe('9');
       own.clear();
     });
   });

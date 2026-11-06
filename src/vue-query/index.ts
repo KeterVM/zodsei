@@ -210,18 +210,33 @@ function groupNode(
   });
 }
 
-/**
- * TanStack Vue Query helpers for every endpoint of a zodsei client.
- * Pass `queryClient` only in the browser; on the server let the composables inject it.
- */
+export interface VueQueryUtilsOptions {
+  /** Prefix for every key path, so clients sharing a QueryClient never share keys. */
+  scope?: readonly string[];
+  /** Pass only in the browser; on the server let the composables inject it. */
+  queryClient?: QueryClient;
+}
+
+/** TanStack Vue Query helpers for every endpoint of a zodsei client. */
 export function createVueQueryUtils<C extends Contract>(
   client: ZodseiClient<C>,
-  queryClient?: QueryClient
+  options?: VueQueryUtilsOptions
+): VueQueryUtils<C>;
+/** @deprecated Pass `{ queryClient }` instead. */
+export function createVueQueryUtils<C extends Contract>(
+  client: ZodseiClient<C>,
+  queryClient: QueryClient
+): VueQueryUtils<C>;
+export function createVueQueryUtils<C extends Contract>(
+  client: ZodseiClient<C>,
+  options?: VueQueryUtilsOptions | QueryClient
 ): VueQueryUtils<C> {
+  const { scope = [], queryClient }: VueQueryUtilsOptions =
+    options && 'getQueryCache' in options ? { queryClient: options } : (options ?? {});
   return groupNode(
     client as unknown as Record<string, unknown>,
     contractOf(client),
-    [],
+    [...scope],
     queryClient
   ) as VueQueryUtils<C>;
 }

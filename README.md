@@ -461,8 +461,19 @@ matches every query under `users` and never collides with your own string keys.
   }
   ```
 
-- Pass a `QueryClient` as the second argument of `createVueQueryUtils` only in client-only apps. With
-  SSR (Nuxt), leave it out so the composables inject the per-request client.
+- With one client per module on a shared `QueryClient`, give each a `scope`. Its keys then start
+  with the scope, so `authApi.key()` matches only that module's queries and endpoints with the
+  same name in two modules don't share cache entries:
+
+  ```typescript
+  export const authApi = createVueQueryUtils(authClient, { scope: ['auth'] });
+  authApi.users.get.queryKey({ id: '1' }); // [['auth', 'users', 'get'], { type: 'query', ... }]
+  ```
+
+  Without a scope, the root `key()` is `[[]]` and matches every zodsei query.
+
+- Pass `{ queryClient }` to `createVueQueryUtils` only in client-only apps. With SSR (Nuxt), leave
+  it out so the composables inject the per-request client.
 - A contract entry named `key` hides that group's `key()` helper.
 
 ## Advanced
