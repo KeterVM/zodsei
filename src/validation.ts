@@ -6,14 +6,23 @@ type SafeValidationResult<T> =
   | { success: true; data: T }
   | { success: false; error: ValidationError };
 
+// A request schema with a one-way step (`.transform()`, `z.preprocess()`) cannot be encoded.
+// zod reports that with its own error class; callers are promised a ZodseiError.
+function toValidationError(error: unknown, type: ValidationType): ValidationError | undefined {
+  if (error instanceof z.ZodError) {
+    return ValidationError.fromZodError(error, type);
+  }
+  if (error instanceof z.core.$ZodEncodeError) {
+    return new ValidationError(`${type} schema cannot be encoded: ${error.message}`, [], type);
+  }
+  return undefined;
+}
+
 function validate<T>(run: () => T, type: ValidationType): T {
   try {
     return run();
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      throw ValidationError.fromZodError(error, type);
-    }
-    throw error;
+    throw toValidationError(error, type) ?? error;
   }
 }
 
@@ -27,12 +36,10 @@ function safeValidate<T>(
       ? { success: true, data: result.data }
       : { success: false, error: ValidationError.fromZodError(result.error, type) };
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { success: false, error: ValidationError.fromZodError(error, type) };
-    }
     return {
       success: false,
-      error: new ValidationError('Unknown validation error', [], type),
+      error:
+        toValidationError(error, type) ?? new ValidationError('Unknown validation error', [], type),
     };
   }
 }

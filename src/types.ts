@@ -31,7 +31,17 @@ export function defineContract<T extends Contract>(contract: T): T {
 }
 
 export function isEndpointDefinition(value: unknown): value is EndpointDefinition {
-  return typeof value === 'object' && value !== null && 'path' in value && 'method' in value;
+  // A group may hold endpoints named `path` and `method`; only strings mark an endpoint.
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { path?: unknown }).path === 'string' &&
+    typeof (value as { method?: unknown }).method === 'string'
+  );
+}
+
+export function isNestedContract(value: unknown): value is Contract {
+  return typeof value === 'object' && value !== null && !isEndpointDefinition(value);
 }
 
 /**

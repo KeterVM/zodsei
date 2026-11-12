@@ -54,21 +54,30 @@ export class HttpError extends ZodseiError {
 
 // Network error
 export class NetworkError extends ZodseiError {
-  constructor(
-    message: string,
-    public readonly originalError: Error
-  ) {
+  declare readonly originalError: Error;
+
+  constructor(message: string, originalError: Error) {
     super(message, 'NETWORK_ERROR');
     this.name = 'NetworkError';
+    hideOriginalError(this, originalError);
   }
 }
 
 // The request was cancelled through its AbortSignal or an axios CancelToken.
 export class CanceledError extends ZodseiError {
-  constructor(public readonly originalError: Error) {
+  declare readonly originalError: Error;
+
+  constructor(originalError: Error) {
     super('Request canceled', 'CANCELED');
     this.name = 'CanceledError';
+    hideOriginalError(this, originalError);
   }
+}
+
+// An axios error carries the request config, Authorization header included. Non-enumerable keeps
+// it out of JSON.stringify and console output of the zodsei error while leaving it readable.
+function hideOriginalError(error: ZodseiError, originalError: Error): void {
+  Object.defineProperty(error, 'originalError', { value: originalError, enumerable: false });
 }
 
 export function canceledBy(signal: AbortSignal): CanceledError {

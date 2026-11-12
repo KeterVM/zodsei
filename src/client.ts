@@ -10,9 +10,10 @@ import {
   EndpointMethodWithSchema,
   InferResponseType,
   isEndpointDefinition,
+  isNestedContract,
 } from './types';
 import { validateRequest, validateResponse } from './validation';
-import { canceledBy } from './errors';
+import { canceledBy, ValidationError } from './errors';
 import { separateParams, replacePath, shouldHaveBody, isNativeBody } from './utils/path';
 import { MiddlewareExecutor } from './middleware';
 import { AxiosAdapter } from './adapters/axios';
@@ -53,30 +54,23 @@ export class ZodseiClient<T extends Contract> {
 
     // Create proxy object for dynamic method calls with nested support
     const client = new Proxy(this, {
-      get: (target, prop: string | symbol) => {
-        if (typeof prop === 'string') {
-          // Check if it's a direct endpoint
-          if (prop in this.contract && isEndpointDefinition(this.contract[prop])) {
-            return this.createEndpointMethod(this.contract[prop] as EndpointDefinition);
-          }
-
-          // Check if it's a nested contract
-          if (prop in this.contract && this.isNestedContract(this.contract[prop])) {
-            return this.createNestedClient(this.contract[prop] as Contract);
-          }
-        }
-        return Reflect.get(target as object, prop) as unknown;
-      },
+      get: (target, prop: string | symbol) =>
+        this.resolve(this.contract, prop) ?? (Reflect.get(target as object, prop) as unknown),
     }) as ZodseiClient<T> & ApiClient<T>;
     contracts.set(client, contract);
     return client;
   }
 
-  /**
-   * Check if a value is a nested contract
-   */
-  private isNestedContract(value: unknown): value is Contract {
-    return typeof value === 'object' && value !== null && !isEndpointDefinition(value);
+  // Own keys only: inherited ones such as `__proto__` and `constructor` are not contract entries.
+  private resolve(contract: Contract, prop: string | symbol): unknown {
+    if (typeof prop !== 'string' || !Object.prototype.hasOwnProperty.call(contract, prop)) {
+      return undefined;
+    }
+    const child = contract[prop];
+    if (isEndpointDefinition(child)) {
+      return this.createEndpointMethod(child);
+    }
+    return isNestedContract(child) ? this.createNestedClient(child) : undefined;
   }
 
   /**
@@ -85,22 +79,7 @@ export class ZodseiClient<T extends Contract> {
   private createNestedClient(nestedContract: Contract): ApiClient<Contract> {
     return new Proxy(
       {},
-      {
-        get: (_target, prop: string | symbol) => {
-          if (typeof prop === 'string') {
-            // Check if it's a direct endpoint in nested contract
-            if (prop in nestedContract && isEndpointDefinition(nestedContract[prop])) {
-              return this.createEndpointMethod(nestedContract[prop] as EndpointDefinition);
-            }
-
-            // Check if it's further nested
-            if (prop in nestedContract && this.isNestedContract(nestedContract[prop])) {
-              return this.createNestedClient(nestedContract[prop] as Contract);
-            }
-          }
-          return undefined as unknown;
-        },
-      }
+      { get: (_target, prop: string | symbol) => this.resolve(nestedContract, prop) }
     ) as ApiClient<Contract>;
   }
 
@@ -178,14 +157,27 @@ export class ZodseiClient<T extends Contract> {
     const finalPath = replacePath(path, pathParams);
 
     const usesBody = shouldHaveBody(method);
-    const body = usesBody ? (fields ? queryParams : data) : undefined;
+    if (!usesBody && !fields && data !== undefined && data !== null) {
+      throw new ValidationError(
+        `${method.toUpperCase()} ${path} sends no body, so its request data must be a plain object`,
+        [],
+        'request'
+      );
+    }
+    const payload = usesBody ? (fields ? queryParams : data) : undefined;
+    const sendsJson =
+      payload !== undefined &&
+      !isNativeBody(payload) &&
+      !Object.keys(options?.headers ?? {}).some((name) => name.toLowerCase() === 'content-type');
+    // Axios sends a string as-is, so under a JSON Content-Type "123" would arrive as a number.
+    const body = sendsJson && typeof payload === 'string' ? JSON.stringify(payload) : payload;
 
     return {
       // Keep query parameters in RequestContext so Axios serializes them exactly once.
       url: finalPath.startsWith('/') ? finalPath : `/${finalPath}`,
       method,
       headers: {
-        ...(body === undefined || isNativeBody(body) ? {} : { 'Content-Type': 'application/json' }),
+        ...(sendsJson ? { 'Content-Type': 'application/json' } : {}),
         ...options?.headers,
       },
       body,

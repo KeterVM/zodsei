@@ -1,5 +1,12 @@
 import type { z } from 'zod';
-import type { Contract, EndpointDefinition, InferRequestType, InferResponseType } from './types';
+import {
+  isEndpointDefinition,
+  isNestedContract,
+  type Contract,
+  type EndpointDefinition,
+  type InferRequestType,
+  type InferResponseType,
+} from './types';
 
 /**
  * Schema inference and extraction utilities
@@ -31,7 +38,7 @@ export class SchemaExtractor<T extends Contract> {
    */
   getEndpoint<K extends keyof T>(path: K): T[K] extends EndpointDefinition ? T[K] : never {
     const endpoint = this.contract[path];
-    if (this.isEndpointDefinition(endpoint)) {
+    if (isEndpointDefinition(endpoint)) {
       return endpoint as T[K] extends EndpointDefinition ? T[K] : never;
     }
     throw new Error(`Endpoint "${String(path)}" not found or is not a valid endpoint`);
@@ -42,7 +49,7 @@ export class SchemaExtractor<T extends Contract> {
    */
   getNested<K extends keyof T>(path: K): T[K] extends Contract ? SchemaExtractor<T[K]> : never {
     const nested = this.contract[path];
-    if (this.isNestedContract(nested)) {
+    if (isNestedContract(nested)) {
       return new SchemaExtractor(nested as T[K] & Contract) as T[K] extends Contract
         ? SchemaExtractor<T[K]>
         : never;
@@ -94,7 +101,7 @@ export class SchemaExtractor<T extends Contract> {
    */
   getEndpointPaths(): Array<keyof T> {
     return Object.keys(this.contract).filter((key) =>
-      this.isEndpointDefinition(this.contract[key])
+      isEndpointDefinition(this.contract[key])
     ) as Array<keyof T>;
   }
 
@@ -128,31 +135,6 @@ export class SchemaExtractor<T extends Contract> {
           responseSchema: z.ZodType | undefined;
         }
       : never;
-  }
-
-  /**
-   * Check if a value is an endpoint definition
-   */
-  private isEndpointDefinition(value: unknown): value is EndpointDefinition {
-    return (
-      Boolean(value) &&
-      typeof value === 'object' &&
-      value !== null &&
-      'path' in value &&
-      'method' in value
-    );
-  }
-
-  /**
-   * Check if a value is a nested contract
-   */
-  private isNestedContract(value: unknown): value is Contract {
-    return (
-      Boolean(value) &&
-      typeof value === 'object' &&
-      value !== null &&
-      !this.isEndpointDefinition(value)
-    );
   }
 }
 

@@ -118,7 +118,7 @@ describe('Validation Utilities', () => {
       }
     });
 
-    it('should handle non-Zod errors', () => {
+    it('should report a schema that cannot be encoded', () => {
       const result = safeParseRequest(
         z.string().transform((s) => s.length),
         3
@@ -126,7 +126,7 @@ describe('Validation Utilities', () => {
       expect(result.success).toBe(false);
       if (!result.success) {
         expect(result.error).toBeInstanceOf(ValidationError);
-        expect(result.error.message).toBe('Unknown validation error');
+        expect(result.error.message).toContain('request schema cannot be encoded');
         expect(result.error.type).toBe('request');
       }
     });
