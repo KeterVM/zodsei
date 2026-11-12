@@ -295,6 +295,20 @@ const client = createClient(contract, {
 });
 ```
 
+默认缓存 key 由请求方法、URL、query、body 和单次调用传入的 headers 组成。Axios 实例或拦截器添加的
+headers 不在其中。如果一个 client 服务多个用户（SSR、Node 服务），且 token 由拦截器注入，需要把用户
+标识加进 key，否则一个用户会拿到另一个用户的缓存响应：
+
+```typescript
+cacheMiddleware({
+  ttl: 60000,
+  keyGenerator: (request) => `${currentUserId()}|${request.method}|${request.url}`,
+});
+```
+
+每次缓存命中都返回响应的独立副本。默认内存存储最多保留 1000 条，超出后淘汰最旧的条目，可通过
+`storage: new MemoryCacheStorage({ maxEntries: 200 })` 调整。
+
 #### 自定义中间件
 
 ```typescript

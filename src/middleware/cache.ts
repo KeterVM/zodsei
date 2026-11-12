@@ -5,6 +5,11 @@ import type { Middleware, RequestContext, ResponseContext } from '../types';
  */
 export interface CacheConfig {
   ttl: number; // Cache time (milliseconds)
+  /**
+   * The default key covers method, URL, query, body and per-call headers. It cannot see headers
+   * added by the axios instance or its interceptors, so when those decide whose data comes back
+   * (an Authorization token, a tenant id) include that identity here.
+   */
   keyGenerator?: (request: RequestContext) => string;
   shouldCache?: (request: RequestContext, response: ResponseContext) => boolean;
   storage?: CacheStorage;
@@ -34,6 +39,11 @@ export interface CacheEntry {
  */
 export class MemoryCacheStorage implements CacheStorage {
   private cache = new Map<string, CacheEntry>();
+  private readonly maxEntries: number;
+
+  constructor(options: { maxEntries?: number } = {}) {
+    this.maxEntries = Math.max(1, Math.trunc(options.maxEntries ?? 1000) || 1);
+  }
 
   async get(key: string): Promise<CacheEntry | null> {
     const entry = this.cache.get(key);
@@ -52,7 +62,15 @@ export class MemoryCacheStorage implements CacheStorage {
   }
 
   async set(key: string, entry: CacheEntry): Promise<void> {
+    // Re-inserting moves the key to the end, so the Map's first key is always the oldest write.
+    this.cache.delete(key);
     this.cache.set(key, entry);
+    if (this.cache.size > this.maxEntries) {
+      this.cleanup();
+    }
+    while (this.cache.size > this.maxEntries) {
+      this.cache.delete(this.cache.keys().next().value as string);
+    }
   }
 
   async delete(key: string): Promise<void> {
@@ -106,6 +124,15 @@ function defaultShouldCache(request: RequestContext, response: ResponseContext):
   return request.method.toLowerCase() === 'get' && response.status >= 200 && response.status < 300;
 }
 
+// Streams and other uncloneable bodies cannot be replayed, so they are not cached.
+function cloneOrUndefined(response: ResponseContext): ResponseContext | undefined {
+  try {
+    return structuredClone(response);
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * Create cache middleware
  */
@@ -123,7 +150,8 @@ export function cacheMiddleware(config: CacheConfig): Middleware {
     // Try to get from cache
     const cachedEntry = await storage.get(cacheKey);
     if (cachedEntry) {
-      return cachedEntry.data;
+      // Callers get their own copy, so mutating a result cannot change later cache hits.
+      return structuredClone(cachedEntry.data);
     }
 
     // Execute request
@@ -131,13 +159,10 @@ export function cacheMiddleware(config: CacheConfig): Middleware {
 
     // Check if should cache
     if (shouldCache(request, response)) {
-      const entry: CacheEntry = {
-        data: response,
-        timestamp: Date.now(),
-        ttl,
-      };
-
-      await storage.set(cacheKey, entry);
+      const data = cloneOrUndefined(response);
+      if (data) {
+        await storage.set(cacheKey, { data, timestamp: Date.now(), ttl });
+      }
     }
 
     return response;

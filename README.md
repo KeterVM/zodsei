@@ -293,6 +293,22 @@ const client = createClient(contract, {
 });
 ```
 
+The default key is built from the method, URL, query, body and the headers passed per call. It
+cannot see headers added by the Axios instance or its interceptors. If one client serves several
+users (SSR, a Node service) and the token comes from an interceptor, add the user to the key, or
+one user receives another's cached response:
+
+```typescript
+cacheMiddleware({
+  ttl: 60000,
+  keyGenerator: (request) => `${currentUserId()}|${request.method}|${request.url}`,
+});
+```
+
+Each cache hit returns its own copy of the response. The default in-memory storage keeps at most
+1000 entries and evicts the oldest; change it with
+`storage: new MemoryCacheStorage({ maxEntries: 200 })`.
+
 #### Custom Middleware
 
 ```typescript

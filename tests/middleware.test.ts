@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vite-plus/test';
 import { z } from 'zod';
 import { createClient, HttpError } from '../src';
-import { retryMiddleware, cacheMiddleware } from '../src';
+import { retryMiddleware, cacheMiddleware, MemoryCacheStorage } from '../src';
 import { AxiosError } from 'axios';
 import { httpFailure } from './helpers';
 import type { AxiosInstance } from 'axios';
@@ -269,6 +269,81 @@ describe('Middleware', () => {
       expect(result2).toEqual(mockUser);
       // Should only make one HTTP request due to caching
       expect(axiosMock.request).toHaveBeenCalledTimes(1);
+    });
+
+    it('should not let a mutated result change later cache hits', async () => {
+      const contract = { getTags: { path: '/tags', method: 'get' as const } };
+      axiosMock.request.mockResolvedValue({
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        data: { tags: ['a'] },
+      });
+      const client = createClient(contract, {
+        axios: axiosMock,
+        middleware: [cacheMiddleware({ ttl: 1000 })],
+      });
+
+      const first = (await client.getTags()) as { tags: string[] };
+      first.tags.push('mutated');
+      const second = (await client.getTags()) as { tags: string[] };
+      second.tags.push('mutated again');
+
+      expect(await client.getTags()).toEqual({ tags: ['a'] });
+      expect(axiosMock.request).toHaveBeenCalledTimes(1);
+    });
+
+    it('should evict the oldest entry once the memory storage is full', async () => {
+      const storage = new MemoryCacheStorage({ maxEntries: 2 });
+      const entry = (data: unknown) => ({
+        data: { status: 200, statusText: 'OK', headers: {}, data },
+        timestamp: Date.now(),
+        ttl: 1000,
+      });
+
+      await storage.set('a', entry(1));
+      await storage.set('b', entry(2));
+      await storage.set('c', entry(3));
+
+      expect(storage.size()).toBe(2);
+      expect(await storage.get('a')).toBeNull();
+      expect((await storage.get('c'))?.data.data).toBe(3);
+    });
+
+    it('should drop expired entries before evicting live ones', async () => {
+      const storage = new MemoryCacheStorage({ maxEntries: 2 });
+      const entry = (ttl: number, timestamp: number) => ({
+        data: { status: 200, statusText: 'OK', headers: {}, data: null },
+        timestamp,
+        ttl,
+      });
+
+      await storage.set('live', entry(1000, Date.now()));
+      await storage.set('expired', entry(1, Date.now() - 1000));
+      await storage.set('new', entry(1000, Date.now()));
+
+      expect(await storage.get('live')).not.toBeNull();
+      expect(await storage.get('new')).not.toBeNull();
+    });
+  });
+
+  describe('use()', () => {
+    it('should not add middleware to another client built from the same array', async () => {
+      const contract = { ping: { path: '/ping', method: 'get' as const } };
+      axiosMock.request.mockResolvedValue({ status: 200, statusText: 'OK', headers: {}, data: 1 });
+      const shared: Middleware[] = [];
+      const first = createClient(contract, { axios: axiosMock, middleware: shared });
+      const second = createClient(contract, { axios: axiosMock, middleware: shared });
+      const spy = vi.fn<Middleware>((request, next) => next(request));
+
+      first.use(spy);
+      await second.ping();
+
+      expect(spy).not.toHaveBeenCalled();
+      expect(shared).toHaveLength(0);
+
+      await first.ping();
+      expect(spy).toHaveBeenCalledTimes(1);
     });
   });
 
