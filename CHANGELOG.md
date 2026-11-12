@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-11-12
+
+### Added
+
+- `new MemoryCacheStorage({ maxEntries })` caps the in-memory cache. It evicts expired entries
+  first, then the oldest.
+
+### Changed
+
+- The in-memory cache holds at most 1000 entries by default. It was unbounded.
+- GET, DELETE, HEAD and OPTIONS throw `ValidationError` when the request data is not a plain
+  object. The data used to be dropped without an error.
+- A string request body is JSON-encoded, so `"123"` arrives as a string and not as a number. A
+  call that sets its own `Content-Type` sends the string as-is and gets no JSON `Content-Type`.
+- A request schema with a one-way step (`.transform()`, `z.preprocess()`) throws
+  `ValidationError` instead of zod's `$ZodEncodeError`.
+
+### Fixed
+
+- A cache hit returns its own copy of the response, so mutating a result no longer changes later
+  hits. Responses that cannot be cloned, such as streams, are not cached.
+- `client.use()` no longer pushes into the array passed as `ClientConfig.middleware`, so clients
+  built from one array stop sharing middleware added later.
+- A group holding endpoints named `path` and `method` is no longer taken for an endpoint.
+- Only own contract keys resolve on the client, so `client.__proto__` is the real prototype.
+
+### Security
+
+- `NetworkError.originalError` and `CanceledError.originalError` are non-enumerable, so
+  serializing or logging the error no longer includes the Axios request config and its
+  `Authorization` header. Reading the property works as before.
+- The default cache key cannot see headers set by the Axios instance or its interceptors. The
+  README now says so and shows a `keyGenerator` for clients that serve several users.
+- Lockfile refresh: `follow-redirects` 1.16.3 clears three credential-leak advisories.
+
 ## [3.1.0] - 2026-11-06
 
 ### Added
@@ -578,7 +613,8 @@ z.iso.datetime();
 - Full TypeScript support
 - Comprehensive test suite
 
-[Unreleased]: https://github.com/KeterVM/zodsei/compare/v3.1.0...HEAD
+[Unreleased]: https://github.com/KeterVM/zodsei/compare/v3.2.0...HEAD
+[3.2.0]: https://github.com/KeterVM/zodsei/releases/tag/v3.2.0
 [3.1.0]: https://github.com/KeterVM/zodsei/releases/tag/v3.1.0
 [3.0.0]: https://github.com/KeterVM/zodsei/releases/tag/v3.0.0
 [2.0.0]: https://github.com/KeterVM/zodsei/releases/tag/v2.0.0
